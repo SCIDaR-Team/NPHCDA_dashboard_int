@@ -18,5 +18,15 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          echarts: ['echarts', 'echarts-for-react'],
+          xlsx: ['xlsx'],
+          motion: ['framer-motion'],
+        },
+      },
+    },
   },
 });

@@ -36,3 +36,8 @@ Thumbs.db
 # Misc
 .cache/
 coverage/
+
+# TS build artifacts
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts

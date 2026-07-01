@@ -13,6 +13,7 @@
 
 import type { FilterState, Indicator, BreakdownRow, Split4, Split4Row } from './types';
 import { ALL_STATES, STATE_DONORS, ZONE_OF_STATE } from './geo/states';
+import { LGAS_BY_STATE } from './geo/lgas';
 import { SRH_STATES, SFM_STATES, LCB_STATES } from './mock/indicators';
 
 /* ------------------------------------------------------------------ *
@@ -89,8 +90,6 @@ export const FACILITY_NAME_POOL = [
   'General Hospital Annex',
   'Community Health Post',
 ];
-const LGA_NAME_POOL = ['North', 'South', 'East', 'West', 'Central', 'Metropolitan', 'Rural', 'Urban'];
-
 export function facilityBreakdown(
   baseVal: number,
   statesList?: string[],
@@ -99,8 +98,9 @@ export function facilityBreakdown(
   const list = statesList || ALL_STATES;
   const facilities: BreakdownRow[] = [];
   list.forEach((st) => {
+    const stateLgas = LGAS_BY_STATE[st] || [st];
     for (let i = 0; i < 2; i++) {
-      const lga = `${st} ${LGA_NAME_POOL[hashStr(st + 'lga' + i) % LGA_NAME_POOL.length]}`;
+      const lga = stateLgas[hashStr(st + 'lga' + i) % stateLgas.length];
       const fname = `${FACILITY_NAME_POOL[hashStr(st + i + baseVal) % FACILITY_NAME_POOL.length]}`;
       const p = pseudo(fname + st + '|' + baseVal);
       let v = baseVal + (p - 0.5) * Math.max(24, baseVal * 0.65);
@@ -358,11 +358,11 @@ export function quarterlyToYearly(qArr: number[]): number[] {
 /* ------------------------------------------------------------------ *
  * Administrative hierarchy helpers + facility dataset builder.
  * ------------------------------------------------------------------ */
-const LGA_DIRECTIONS = ['North', 'South', 'East', 'West', 'Central', 'Metropolitan', 'Rural', 'Urban'];
 const WARD_NUMS = ['Ward 1', 'Ward 2', 'Ward 3', 'Ward 4', 'Ward 5'];
 
+/** Real LGAs for a state (see geo/lgas.ts). Falls back to the state name. */
 export function lgasForState(state: string): string[] {
-  return LGA_DIRECTIONS.slice(0, 4).map((d) => `${state} ${d}`);
+  return LGAS_BY_STATE[state] ?? [state];
 }
 
 export function wardsForLga(lga: string): string[] {

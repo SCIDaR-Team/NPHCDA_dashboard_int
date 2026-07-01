@@ -1,0 +1,82 @@
+/**
+ * NPHCDA design tokens.
+ *
+ * Colours are expressed as space-separated RGB channels so Tailwind's
+ * `rgb(var(--token) / <alpha-value>)` opacity modifier works. The brand green
+ * (#00A859) is preserved from the original; surrounding neutrals, shadows and
+ * spacing are refined for a more premium, enterprise feel.
+ *
+ * `.dark` on <html> selects the dark palette; `.light` (or default) the light one.
+ */
+
+:root,
+.light {
+  /* Surfaces */
+  --c-bg: 244 246 249; /* #F4F6F9 */
+  --c-bg-elev: 255 255 255; /* #FFFFFF */
+  --c-bg-elev-2: 238 242 246; /* #EEF2F6 */
+  --c-bg-elev-3: 226 232 240; /* #E2E8F0 */
+  --c-border: 221 227 235; /* #DDE3EB */
+  --c-border-soft: 231 235 240; /* #E7EBF0 */
+
+  /* Text */
+  --c-text: 22 33 58; /* #16213A */
+  --c-text-soft: 58 74 99; /* #3A4A63 */
+  --c-muted: 100 116 139; /* #64748B */
+  --c-muted-2: 136 150 168; /* #8896A8 */
+
+  /* Brand (NPHCDA green) */
+  --c-green: 0 168 89; /* #00A859 */
+  --c-green-dark: 0 122 69; /* #007A45 */
+  --c-green-bright: 14 147 85; /* #0E9355 */
+
+  /* Status */
+  --c-red: 220 38 38; /* #DC2626 */
+  --c-red-strong: 185 28 28; /* #B91C1C */
+  --c-amber: 217 119 6; /* #D97706 */
+  --c-info: 37 99 235; /* #2563EB */
+
+  /* Heatmap stops (preserved from original) */
+  --c-heat-low: 194 86 44; /* #C2562C */
+  --c-heat-mid: 201 162 39; /* #C9A227 */
+  --c-heat-high: 46 139 87; /* #2E8B57 */
+
+  --c-topbar: 255 255 255;
+  --c-hero-text-soft: 255 255 255;
+
+  --shadow-color: 15 23 42;
+  color-scheme: light;
+}
+
+.dark {
+  --c-bg: 15 23 42; /* #0F172A */
+  --c-bg-elev: 30 41 59; /* #1E293B */
+  --c-bg-elev-2: 36 48 73; /* #243049 */
+  --c-bg-elev-3: 44 59 87; /* #2C3B57 */
+  --c-border: 45 59 82; /* #2D3B52 */
+  --c-border-soft: 31 45 68; /* #1F2D44 */
+
+  --c-text: 241 245 249; /* #F1F5F9 */
+  --c-text-soft: 203 213 225; /* #CBD5E1 */
+  --c-muted: 148 163 184; /* #94A3B8 */
+  --c-muted-2: 100 116 139; /* #64748B */
+
+  --c-green: 0 168 89; /* #00A859 */
+  --c-green-dark: 0 107 63; /* #006B3F */
+  --c-green-bright: 16 196 110; /* #10C46E */
+
+  --c-red: 242 83 109; /* #F2536D */
+  --c-red-strong: 220 38 38; /* #DC2626 */
+  --c-amber: 245 158 11; /* #F59E0B */
+  --c-info: 56 189 248; /* #38BDF8 */
+
+  --c-heat-low: 194 86 44;
+  --c-heat-mid: 201 162 39;
+  --c-heat-high: 46 139 87;
+
+  --c-topbar: 11 18 32; /* #0B1220 */
+  --c-hero-text-soft: 255 255 255;
+
+  --shadow-color: 0 0 0;
+  color-scheme: dark;
+}

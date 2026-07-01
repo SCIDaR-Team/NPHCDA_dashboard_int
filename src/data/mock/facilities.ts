@@ -19,7 +19,7 @@ export function buildFacilityDataset(): FacilityRow[] {
   const rows: FacilityRow[] = [];
   ALL_STATES.forEach((state) => {
     lgasForState(state)
-      .slice(0, 2)
+      .slice(0, 3)
       .forEach((lga) => {
         const wards = wardsForLga(lga);
         const nFac = 3 + (hashStr(lga) % 2);
