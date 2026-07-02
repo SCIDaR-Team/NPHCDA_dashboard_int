@@ -63,7 +63,11 @@ export function LoginPage() {
 
       {/* Top bar */}
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-5 py-5">
-        <Link to="/" className="flex items-center gap-2 text-sm font-semibold text-text-soft transition-colors hover:text-text">
+        <Link
+          to="/"
+          aria-label="Back to landing page"
+          className="flex items-center gap-2 text-sm font-semibold text-text-soft transition-colors hover:text-text"
+        >
           <LogoMark size={28} />
           <span className="hidden sm:inline">NPHCDA Dashboard</span>
         </Link>
@@ -151,6 +155,7 @@ export function LoginPage() {
           </form>
 
           <button
+            type="button"
             onClick={fillDemo}
             className="mt-5 flex w-full items-center gap-2 rounded-lg border border-dashed border-brand/40 bg-brand/5 px-4 py-3 text-left text-xs text-text-soft transition-colors hover:bg-brand/10"
           >
@@ -164,7 +169,7 @@ export function LoginPage() {
 
         <p className="mt-6 text-center text-xs text-muted">
           <Link to="/" className="font-semibold text-brand-bright hover:underline">
-            ← Back to home
+            ← Back to Landing Page
           </Link>
         </p>
       </motion.div>

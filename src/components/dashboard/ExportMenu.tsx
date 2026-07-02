@@ -68,6 +68,9 @@ export function ExportMenu({ filename, rows, captureRef }: ExportMenuProps) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Export this view"
         className="flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-text-soft transition-colors hover:bg-bg-elev-2 hover:text-text"
       >
         <Download size={15} /> Export

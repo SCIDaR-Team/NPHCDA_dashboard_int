@@ -15,14 +15,15 @@ import {
   Moon,
   BellRing,
 } from 'lucide-react';
-import { Logo, LogoMark } from '@/components/brand/Logo';
+import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui';
 import { ThemeToggle } from '@/components/layout/TopbarMenus';
+import { useAuthStore } from '@/features/auth/authStore';
 
 const STATS = [
   { v: '37', l: 'States + FCT' },
   { v: '3', l: 'Programme areas' },
-  { v: '69', l: 'Indicators tracked' },
+  { v: '41', l: 'Indicators tracked' },
   { v: '7', l: 'Linked dashboards' },
 ];
 
@@ -56,6 +57,11 @@ const FEATURES = [
 ];
 
 export function LandingPage() {
+  const user = useAuthStore((s) => s.user);
+  // When a session is already active, the public entry point routes straight
+  // back into the app — no re-authentication.
+  const appDest = '/app/home';
+
   return (
     <div className="min-h-screen bg-bg text-text">
       {/* Nav */}
@@ -64,11 +70,19 @@ export function LandingPage() {
           <Logo />
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Link to="/login">
-              <Button variant="primary" size="sm">
-                Sign in <ArrowRight size={15} />
-              </Button>
-            </Link>
+            {user ? (
+              <Link to={appDest} aria-label="Go to dashboard">
+                <Button variant="primary" size="sm">
+                  Go to dashboard <ArrowRight size={15} />
+                </Button>
+              </Link>
+            ) : (
+              <Link to="/login" aria-label="Sign in">
+                <Button variant="primary" size="sm">
+                  Sign in <ArrowRight size={15} />
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -106,9 +120,9 @@ export function LandingPage() {
                 <strong>stocked</strong> to deliver care, and is it actually <strong>delivering</strong> care.
               </p>
               <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
-                <Link to="/login">
+                <Link to={user ? appDest : '/login'}>
                   <Button size="lg" className="w-full sm:w-auto">
-                    Launch dashboard <ArrowRight size={18} />
+                    {user ? 'Open dashboard' : 'Launch dashboard'} <ArrowRight size={18} />
                   </Button>
                 </Link>
                 <a href="#features">
@@ -134,96 +148,67 @@ export function LandingPage() {
               </motion.div>
             </motion.div>
 
-            {/* Hero visual */}
+            {/* Hero visual — framed as an app window so the product screenshot
+                reads as intentional and blends into the surrounding surface. */}
             <motion.div
               initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.1 }}
               className="relative mx-auto w-full max-w-md lg:max-w-none"
             >
-              <img
-                src="/images/hero_facility.png"
-                alt="A primary health care facility supported by the NPHCDA platform"
-                className="w-full drop-shadow-2xl"
+              {/* Soft brand glow behind the frame */}
+              <div
+                className="pointer-events-none absolute -inset-6 -z-10 opacity-40 blur-2xl"
+                style={{ background: 'radial-gradient(60% 60% at 50% 40%, rgb(var(--c-green) / 0.5), transparent 70%)' }}
               />
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* About NPHCDA (icon + gradient, no photos) */}
-      <section className="mx-auto max-w-6xl px-5 py-16">
-        <div className="grid items-center gap-8 lg:grid-cols-2">
-          <div
-            className="relative flex min-h-[300px] flex-col justify-between overflow-hidden rounded-card border border-border p-8 shadow-card"
-            style={{ background: 'linear-gradient(135deg, #007A45 0%, #00A859 55%, #10C46E 100%)' }}
-          >
-            <div
-              className="pointer-events-none absolute inset-0 opacity-20"
-              style={{
-                backgroundImage:
-                  'radial-gradient(circle at 15% 20%, rgba(255,255,255,0.45) 0, transparent 35%), radial-gradient(circle at 85% 80%, rgba(255,255,255,0.3) 0, transparent 30%)',
-              }}
-            />
-            <LogoMark size={48} className="relative shadow-lg" />
-            <div className="relative grid grid-cols-2 gap-4 text-white">
-              {[
-                ['37', 'States + FCT'],
-                ['774', 'LGAs covered'],
-                ['69', 'Indicators'],
-                ['3', 'Programme areas'],
-              ].map(([v, l]) => (
-                <div key={l} className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-                  <div className="text-2xl font-extrabold">{v}</div>
-                  <div className="text-xs text-white/80">{l}</div>
+              <div className="overflow-hidden rounded-2xl border border-border bg-bg-elev shadow-2xl ring-1 ring-black/5">
+                {/* Window chrome */}
+                <div className="flex items-center gap-1.5 border-b border-border-soft bg-bg-elev-2 px-4 py-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+                  <span className="ml-3 hidden text-[11px] font-medium text-muted sm:inline">
+                    NPHCDA Dashboard — Overview
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <SectionLabel>About the agency</SectionLabel>
-            <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">
-              National Primary Health Care Development Agency
-            </h2>
-            <p className="mt-4 leading-relaxed text-text-soft">
-              The NPHCDA leads the delivery of Primary Health Care across Nigeria — strengthening
-              facilities, securing essential commodities and expanding life-saving services for mothers
-              and children in every state.
-            </p>
-            <p className="mt-3 leading-relaxed text-muted">
-              This platform brings the agency's readiness, stock and service indicators into a single,
-              decision-ready workspace — built to scale from today's illustrative figures to live
-              national data.
-            </p>
+                <img
+                  src="/images/hero_facility.png"
+                  alt="The NPHCDA dashboard showing PHC performance across Nigeria"
+                  className="block w-full"
+                />
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Pillars */}
-      <section className="mx-auto max-w-6xl px-5 py-16">
-        <SectionLabel>The three building blocks</SectionLabel>
-        <div className="mt-6 grid gap-5 md:grid-cols-3">
-          {PILLARS.map((p, i) => (
-            <motion.div
-              key={p.title}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.08 }}
-              className="rounded-card border border-border bg-bg-elev p-6 shadow-card transition-all hover:-translate-y-1 hover:shadow-card-hover"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand/12 text-brand-bright">
-                <p.icon size={24} />
-              </div>
-              <h3 className="mt-4 text-lg font-bold">{p.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{p.desc}</p>
-            </motion.div>
-          ))}
+      {/* Pillars — tinted band gives a clear colour break from the hero above */}
+      <section className="border-y border-border bg-brand/[0.05]">
+        <div className="mx-auto max-w-6xl px-5 py-16">
+          <SectionLabel>The three building blocks</SectionLabel>
+          <div className="mt-6 grid gap-5 md:grid-cols-3">
+            {PILLARS.map((p, i) => (
+              <motion.div
+                key={p.title}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
+                className="rounded-card border border-border bg-bg-elev p-6 shadow-card transition-all hover:-translate-y-1 hover:shadow-card-hover"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand/12 text-brand-bright">
+                  <p.icon size={24} />
+                </div>
+                <h3 className="mt-4 text-lg font-bold">{p.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{p.desc}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Features */}
-      <section id="features" className="border-y border-border bg-bg-elev/40">
+      <section id="features" className="scroll-mt-16 border-y border-border bg-bg-elev/40">
         <div className="mx-auto max-w-6xl px-5 py-16">
           <SectionLabel>Built for decision-makers</SectionLabel>
           <h2 className="mt-3 max-w-2xl text-2xl font-extrabold sm:text-3xl">
@@ -252,19 +237,21 @@ export function LandingPage() {
       <section className="mx-auto max-w-4xl px-5 py-20 text-center">
         <h2 className="text-3xl font-extrabold sm:text-4xl">Ready to dive in?</h2>
         <p className="mx-auto mt-3 max-w-xl text-text-soft">
-          Sign in with the demo account to explore the full platform — every page, filter and export.
+          {user
+            ? 'Your session is active — jump straight back into the workspace: every page, filter and export.'
+            : 'Sign in with the demo account to explore the full platform — every page, filter and export.'}
         </p>
-        <Link to="/login" className="mt-8 inline-block">
+        <Link to={user ? appDest : '/login'} className="mt-8 inline-block">
           <Button size="lg">
-            Sign in to continue <ArrowRight size={18} />
+            {user ? 'Open dashboard' : 'Sign in to continue'} <ArrowRight size={18} />
           </Button>
         </Link>
       </section>
 
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 text-xs text-muted sm:flex-row">
-          <Logo compact />
-          <p>Illustrative figures for design & decision-support. © {new Date().getFullYear()} NPHCDA.</p>
+          <Logo />
+          <p>Live PHC performance data for decision-support. © {new Date().getFullYear()} NPHCDA.</p>
         </div>
       </footer>
     </div>

@@ -65,6 +65,7 @@ export function AppShell() {
             >
               <button
                 onClick={() => setMobileNav(false)}
+                aria-label="Close navigation"
                 className="absolute right-3 top-4 z-10 rounded-lg p-1.5 text-muted hover:bg-bg-elev-2 hover:text-text"
               >
                 <X size={18} />
@@ -89,6 +90,7 @@ export function AppShell() {
 
           <button
             onClick={() => setFilterOpen(true)}
+            aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : 'Filters'}
             className="relative flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-text-soft transition-colors hover:bg-bg-elev-2 hover:text-text"
           >
             <SlidersHorizontal size={16} />
@@ -113,6 +115,7 @@ export function AppShell() {
           <div className="ml-auto flex items-center gap-1">
             <button
               onClick={() => setSearchOpen(true)}
+              aria-label="Search (Ctrl or Cmd + K)"
               className="flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm text-muted transition-colors hover:bg-bg-elev-2 hover:text-text"
             >
               <Search size={16} />

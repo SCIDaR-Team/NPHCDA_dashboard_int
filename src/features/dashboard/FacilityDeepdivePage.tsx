@@ -130,10 +130,18 @@ export function FacilityDeepdivePage() {
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
 
   const SortHeader = ({ label, k, align = 'left' }: { label: string; k: SortKey; align?: 'left' | 'right' }) => (
-    <th className={cn('px-3 py-2.5 font-semibold', align === 'right' && 'text-right')}>
+    <th
+      scope="col"
+      aria-sort={sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={cn('px-3 py-2.5 font-semibold', align === 'right' && 'text-right')}
+    >
       <button
         onClick={() => toggleSort(k)}
-        className={cn('inline-flex items-center gap-1 hover:text-text', align === 'right' && 'flex-row-reverse')}
+        aria-label={`Sort by ${label}`}
+        className={cn(
+          'inline-flex items-center gap-1 rounded hover:text-text focus-visible:ring-2 focus-visible:ring-brand/60',
+          align === 'right' && 'flex-row-reverse'
+        )}
       >
         {label}
         {sort.key === k ? (
@@ -200,8 +208,9 @@ export function FacilityDeepdivePage() {
           </div>
           <button
             onClick={() => setGroupByState((g) => !g)}
+            aria-pressed={groupByState}
             className={cn(
-              'flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors',
+              'flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-brand/60',
               groupByState ? 'border-brand bg-brand/12 text-brand-bright' : 'border-border text-muted hover:text-text'
             )}
           >
@@ -215,8 +224,10 @@ export function FacilityDeepdivePage() {
             <button
               key={c.key}
               onClick={() => toggleCol(c.key)}
+              aria-pressed={activeCols.has(c.key)}
+              aria-label={`${activeCols.has(c.key) ? 'Hide' : 'Show'} ${c.label} column`}
               className={cn(
-                'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+                'rounded-full border px-3 py-1 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-brand/60',
                 activeCols.has(c.key) ? 'border-brand bg-brand/12 text-brand-bright' : 'border-border text-muted hover:text-text'
               )}
             >

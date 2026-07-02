@@ -140,7 +140,7 @@ export function TrendPage() {
     <div>
       <PageHeader
         title="Trend Analysis"
-        subtitle="2023 – 2026, monthly / quarterly / yearly. Indexed mode lets indicators with different units share one axis."
+        subtitle="Compare indicators month-by-month, or rolled up to quarters or years. Indexed mode lets indicators with different units share one axis."
         actions={<ExportMenu filename="nphcda-trends" rows={exportRows} captureRef={chartRef} />}
       />
 
@@ -149,22 +149,29 @@ export function TrendPage() {
           <Skeleton className="h-[420px]" />
         ) : (
           <>
-            <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2">
-              {names.map((name) => {
-                const idx = names.indexOf(name);
-                return (
-                  <label key={name} className="flex cursor-pointer items-center gap-1.5 text-xs text-text-soft">
-                    <input
-                      type="checkbox"
-                      checked={checked.has(name)}
-                      onChange={() => toggle(name)}
-                      className="h-3.5 w-3.5 accent-brand"
-                    />
-                    <span className="h-2 w-2 rounded-full" style={{ background: trendColors[idx % trendColors.length] }} />
-                    {name}
-                  </label>
-                );
-              })}
+            <div className="mb-3">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-2">
+                  Indicators ({checked.size} of {names.length})
+                </span>
+              </div>
+              <div className="flex max-h-32 flex-wrap gap-x-4 gap-y-2 overflow-y-auto rounded-lg border border-border bg-bg-elev-2/40 p-3">
+                {names.map((name) => {
+                  const idx = names.indexOf(name);
+                  return (
+                    <label key={name} className="flex cursor-pointer items-center gap-1.5 text-xs text-text-soft">
+                      <input
+                        type="checkbox"
+                        checked={checked.has(name)}
+                        onChange={() => toggle(name)}
+                        className="h-3.5 w-3.5 accent-brand"
+                      />
+                      <span className="h-2 w-2 rounded-full" style={{ background: trendColors[idx % trendColors.length] }} />
+                      {name}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -201,12 +208,13 @@ function Segmented({
   options: [string, string][];
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-border bg-bg-elev-2 p-0.5">
+    <div role="group" className="inline-flex rounded-lg border border-border bg-bg-elev-2 p-0.5">
       {options.map(([val, label]) => (
         <button
           key={val}
           onClick={() => onChange(val)}
-          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+          aria-pressed={value === val}
+          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-brand/60 ${
             value === val ? 'bg-brand text-white' : 'text-muted hover:text-text'
           }`}
         >

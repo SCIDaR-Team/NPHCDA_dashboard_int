@@ -3,13 +3,6 @@ import { motion } from 'framer-motion';
 import { ArrowRight, LayoutDashboard } from 'lucide-react';
 import { NAV_ITEMS } from '@/app/navigation';
 
-const STATS = [
-  { v: '37', l: 'States + FCT' },
-  { v: '3', l: 'Programme areas' },
-  { v: '69', l: 'Indicators tracked' },
-  { v: '7', l: 'Linked dashboards' },
-];
-
 export function HomePage() {
   const navigate = useNavigate();
 
@@ -52,15 +45,6 @@ export function HomePage() {
               </Link>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:flex-shrink-0">
-            {STATS.map((s) => (
-              <div key={s.l} className="rounded-xl border border-border bg-bg-elev-2/60 px-4 py-3">
-                <div className="text-2xl font-extrabold text-brand-bright">{s.v}</div>
-                <div className="text-[11px] font-medium text-muted">{s.l}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </motion.div>
 
@@ -70,10 +54,11 @@ export function HomePage() {
           <motion.button
             key={item.to}
             onClick={() => navigate(item.to)}
+            aria-label={`${item.label} — ${item.description}`}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: i * 0.04 }}
-            className="group flex h-full flex-col rounded-card border border-border bg-bg-elev p-4 text-left shadow-card transition-all hover:-translate-y-1 hover:border-brand/50 hover:shadow-card-hover sm:p-5"
+            className="group flex h-full min-h-0 flex-col rounded-card border border-border bg-bg-elev p-4 text-left shadow-card transition-all hover:-translate-y-1 hover:border-brand/50 hover:shadow-card-hover focus-visible:ring-2 focus-visible:ring-brand/60 sm:p-5"
           >
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-bright">
               <item.icon size={20} />

@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Settings, Bookmark, Trash2, ChevronRight } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { NAV_ITEMS, HOME_ITEM } from '@/app/navigation';
@@ -22,8 +22,16 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col bg-bg-elev">
-      <div className="flex h-16 items-center border-b border-border-soft px-5">
-        <Logo />
+      <div className="flex h-16 items-center border-b border-border-soft px-3">
+        <Link
+          to="/"
+          onClick={onNavigate}
+          aria-label="NPHCDA — go to landing page"
+          title="Go to landing page"
+          className="flex items-center rounded-lg px-2 py-1 transition-colors hover:bg-bg-elev-2"
+        >
+          <Logo />
+        </Link>
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">

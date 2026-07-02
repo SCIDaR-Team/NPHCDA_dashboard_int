@@ -192,7 +192,20 @@ function SnapshotCard({
   const goodness = goodnessFor({ inverse: ind.inverse, pct });
 
   return (
-    <Card hover onClick={onClick} className="group flex h-full cursor-pointer flex-col p-5">
+    <Card
+      hover
+      role="button"
+      tabIndex={0}
+      aria-label={`${block} — view details`}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="group flex h-full cursor-pointer flex-col p-5"
+    >
       <h3 className="text-sm font-bold text-text">{block}</h3>
       <div className="mt-3 flex items-center gap-4">
         <div className="relative flex-shrink-0">

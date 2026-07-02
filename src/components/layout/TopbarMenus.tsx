@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Sun, Moon, LogOut, Settings, User as UserIcon, CheckCheck } from 'lucide-react';
+import { Bell, Sun, Moon, LogOut, Settings, User as UserIcon, CheckCheck, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStore } from '@/store/themeStore';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -12,6 +12,7 @@ export function ThemeToggle() {
     <button
       onClick={toggle}
       title="Toggle light / dark mode"
+      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       className="flex h-9 w-9 items-center justify-center rounded-lg text-text-soft transition-colors hover:bg-bg-elev-2 hover:text-text"
     >
       {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -49,6 +50,9 @@ export function NotificationsMenu() {
       <button
         onClick={() => setOpen((o) => !o)}
         title="Notifications"
+        aria-label={count > 0 ? `Notifications, ${count} unread` : 'Notifications'}
+        aria-haspopup="menu"
+        aria-expanded={open}
         className="relative flex h-9 w-9 items-center justify-center rounded-lg text-text-soft transition-colors hover:bg-bg-elev-2 hover:text-text"
       >
         <Bell size={18} />
@@ -119,7 +123,13 @@ export function ProfileMenu() {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 rounded-lg p-1 pr-2 transition-colors hover:bg-bg-elev-2">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label={`Account menu — ${user.name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center gap-2 rounded-lg p-1 pr-2 transition-colors hover:bg-bg-elev-2"
+      >
         <span
           className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
           style={{ background: user.avatarColor }}
@@ -147,6 +157,8 @@ export function ProfileMenu() {
             <div className="p-1.5">
               <MenuRow icon={UserIcon} label="Profile & settings" onClick={() => { navigate('/app/settings'); setOpen(false); }} />
               <MenuRow icon={Settings} label="Preferences" onClick={() => { navigate('/app/settings'); setOpen(false); }} />
+              <MenuRow icon={Globe} label="View landing page" onClick={() => { navigate('/'); setOpen(false); }} />
+              <div className="my-1 h-px bg-border-soft" />
               <MenuRow
                 icon={LogOut}
                 label="Sign out"

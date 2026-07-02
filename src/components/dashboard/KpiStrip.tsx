@@ -12,10 +12,18 @@ export function KpiStrip({ groups, loading }: { groups: KpiGroup[] | null; loadi
   const scope = scopeLabel(filter);
 
   if (loading || !groups) {
+    // Mirror the real grouped 3-column layout so nothing shifts when data resolves.
     return (
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-36" />
+      <div className="grid gap-x-4 gap-y-5 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, g) => (
+          <div key={g}>
+            <Skeleton className="mb-2 h-3 w-24" />
+            <div className="grid gap-4">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <Skeleton key={i} className="h-36 rounded-card" />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     );

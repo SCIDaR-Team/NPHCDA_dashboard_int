@@ -79,8 +79,21 @@ export function IndicatorCard({ indicator, onOpen }: { indicator: Indicator; onO
   return (
     <Card
       hover={clickable}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      aria-label={clickable ? `${cleanName(ind.name)} — open deep dive` : undefined}
       className={`group flex h-full flex-col p-4 ${clickable ? 'cursor-pointer' : ''} ${wide ? 'sm:col-span-2' : ''}`}
       onClick={() => clickable && onOpen(ind)}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpen(ind);
+              }
+            }
+          : undefined
+      }
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-1.5">

@@ -91,9 +91,16 @@ export function SourceDashboards() {
             </div>
           );
           return disabled ? (
-            <div key={d.name}>{Card}</div>
+            <div key={d.name} aria-label={`${d.name} — coming soon`}>{Card}</div>
           ) : (
-            <a key={d.name} href={d.href} target="_blank" rel="noopener noreferrer" className="block h-full">
+            <a
+              key={d.name}
+              href={d.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Open ${d.name} in a new tab`}
+              className="block h-full rounded-card focus-visible:ring-2 focus-visible:ring-brand/60"
+            >
               {Card}
             </a>
           );
