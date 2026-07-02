@@ -127,8 +127,12 @@ export interface Split4Row {
   nonfunc: number;
 }
 
-/** Trend series keyed by series name → 14 quarterly points (2023Q1–2026Q2). */
-export type TrendSeries = Record<string, number[]>;
+/**
+ * Trend series keyed by series name → 14 quarterly points (2023Q1–2026Q2).
+ * A point may be `null` when a quarter has no data (real sources may only cover
+ * part of the window) — rendered as a gap, never fabricated.
+ */
+export type TrendSeries = Record<string, (number | null)[]>;
 
 /** The active filter scope shared across the app. */
 export interface FilterState {

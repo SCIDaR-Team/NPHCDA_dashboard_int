@@ -33,6 +33,12 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# ETL credentials (never commit real source logins)
+etl/.env.etl
+
+# PFMO reference material — contains live API key PDF; keep local only
+docs/PFMO/
+
 # Misc
 .cache/
 coverage/

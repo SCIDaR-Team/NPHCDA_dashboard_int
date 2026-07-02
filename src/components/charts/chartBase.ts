@@ -189,7 +189,7 @@ export function horizontalBarHeight(
 export interface LineParams {
   theme: ChartTheme;
   categories: string[];
-  series: { name: string; data: number[]; color: string; dashed?: boolean; silent?: boolean }[];
+  series: { name: string; data: (number | null)[]; color: string; dashed?: boolean; silent?: boolean }[];
   smooth?: boolean;
   showSymbol?: boolean;
   yName?: string;

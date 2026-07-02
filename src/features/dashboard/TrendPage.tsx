@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EChartsOption } from 'echarts';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, ErrorState, Skeleton } from '@/components/ui';
@@ -10,8 +10,8 @@ import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { trendColors, defaultsOn } from '@/data/mock/trends';
 import {
-  quarterlyToMonthly,
-  quarterlyToYearly,
+  monthlyToQuarterly,
+  monthlyToYearly,
   linregress,
   monthLabels,
   quarterLabels,
@@ -28,19 +28,44 @@ export function TrendPage() {
   const theme = useChartTheme();
   const chartRef = useRef<HTMLDivElement>(null);
 
-  const [gran, setGran] = useState<Gran>('quarterly');
+  const [gran, setGran] = useState<Gran>('monthly');
   const [mode, setMode] = useState<Mode>('index');
   const [trendlines, setTrendlines] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set(defaultsOn));
 
   const names = trendSeries ? Object.keys(trendSeries) : [];
 
-  const seriesFor = (raw: number[], name: string) => {
-    if (gran === 'monthly') return quarterlyToMonthly(raw, name);
-    if (gran === 'yearly') return quarterlyToYearly(raw);
+  // Whatever the source, make sure a sensible set of series starts selected —
+  // the mock defaults won't exist under a live snapshot with different series.
+  useEffect(() => {
+    if (!names.length) return;
+    setChecked((prev) => {
+      const stillValid = [...prev].filter((n) => names.includes(n));
+      if (stillValid.length) return prev;
+      return new Set(names.slice(0, 3));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trendSeries]);
+
+  // Series are stored at native MONTHLY resolution. Count series (name carries
+  // "(count)") roll up to quarter/year by SUM; rate/percent series by MEAN.
+  const aggFor = (name: string): 'sum' | 'mean' => (/\(count\)/i.test(name) ? 'sum' : 'mean');
+  const seriesFor = (raw: (number | null)[], name: string) => {
+    if (gran === 'quarterly') return monthlyToQuarterly(raw, aggFor(name));
+    if (gran === 'yearly') return monthlyToYearly(raw, aggFor(name));
     return raw.slice();
   };
   const labels = gran === 'monthly' ? monthLabels : gran === 'yearly' ? yearLabels : quarterLabels;
+
+  // Trim leading periods where every active series is empty, so a live snapshot
+  // that only covers recent months doesn't render a mostly-blank axis.
+  const trimStart = (rows: (number | null)[][]): number => {
+    const len = labels.length;
+    for (let i = 0; i < len; i++) {
+      if (rows.some((r) => typeof r[i] === 'number' && isFinite(r[i] as number))) return i;
+    }
+    return 0;
+  };
 
   const option = useMemo<EChartsOption | null>(() => {
     if (!trendSeries) return null;
@@ -48,11 +73,19 @@ export function TrendPage() {
     const active = names.filter((n) => checked.has(n));
     const series: LineParams['series'] = [];
 
-    active.forEach((name) => {
+    const rawByName = active.map((name) => seriesFor(ts[name], name));
+    const start = trimStart(rawByName);
+    const categories = labels.slice(start);
+
+    active.forEach((name, ai) => {
       const colorIdx = Object.keys(ts).indexOf(name);
       const color = trendColors[colorIdx % trendColors.length];
-      const raw = seriesFor(ts[name], name);
-      const data = mode === 'index' ? raw.map((v) => +((v / raw[0]) * 100).toFixed(1)) : raw;
+      const raw = rawByName[ai].slice(start);
+      const base = raw.find((v) => typeof v === 'number' && isFinite(v) && v !== 0) ?? null;
+      const data =
+        mode === 'index'
+          ? raw.map((v) => (typeof v === 'number' && base ? +((v / base) * 100).toFixed(1) : null))
+          : raw;
       series.push({ name, data, color });
       if (trendlines) {
         series.push({ name: `${name} (trend)`, data: linregress(data), color, dashed: true, silent: true });
@@ -61,7 +94,7 @@ export function TrendPage() {
 
     return lineOption({
       theme,
-      categories: labels,
+      categories,
       series,
       smooth: gran !== 'monthly',
       showSymbol: gran !== 'monthly',
@@ -74,11 +107,20 @@ export function TrendPage() {
   const exportRows = useMemo(() => {
     if (!trendSeries) return [];
     const active = names.filter((n) => checked.has(n));
-    return labels.map((label, i) => {
+    const rawByName = active.map((n) => seriesFor(trendSeries[n], n));
+    const start = trimStart(rawByName);
+    return labels.slice(start).map((label, i) => {
       const row: Record<string, unknown> = { Period: label };
-      active.forEach((n) => {
-        const raw = seriesFor(trendSeries[n], n);
-        row[n] = mode === 'index' ? +((raw[i] / raw[0]) * 100).toFixed(1) : raw[i];
+      active.forEach((n, ai) => {
+        const raw = rawByName[ai].slice(start);
+        const base = raw.find((v) => typeof v === 'number' && isFinite(v) && v !== 0) ?? null;
+        const vi = raw[i];
+        row[n] =
+          mode === 'index'
+            ? typeof vi === 'number' && base
+              ? +((vi / base) * 100).toFixed(1)
+              : null
+            : vi;
       });
       return row;
     });

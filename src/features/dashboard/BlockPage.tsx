@@ -71,7 +71,7 @@ export function BlockPage({ block }: { block: BlockName }) {
           const isGap = /gap/i.test(title);
           return (
             <SectionBlock key={title} title={decodeHtml(title)} tone={isGap ? 'warning' : 'brand'}>
-              <div className="grid auto-rows-min items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {cards.map((ind) => (
                   <IndicatorCard key={ind.name} indicator={ind} onOpen={setModalInd} />
                 ))}

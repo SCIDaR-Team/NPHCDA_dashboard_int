@@ -136,20 +136,24 @@ export function stateSplit4Breakdown(split: Split4): Split4Row[] {
   }).sort((a, b) => b.l2 + b.l1 - (a.l2 + a.l1));
 }
 
-export function linregress(values: number[]): number[] {
-  const n = values.length;
-  const xs = values.map((_, i) => i);
-  const xm = xs.reduce((a, b) => a + b, 0) / n;
-  const ym = values.reduce((a, b) => a + b, 0) / n;
+export function linregress(values: (number | null)[]): (number | null)[] {
+  // Fit over the finite points only; leave gaps (null) as gaps in the output.
+  const pairs = values
+    .map((v, i) => [i, v] as const)
+    .filter((p): p is readonly [number, number] => typeof p[1] === 'number' && isFinite(p[1]));
+  if (pairs.length < 2) return values.map(() => null);
+  const n = pairs.length;
+  const xm = pairs.reduce((a, [x]) => a + x, 0) / n;
+  const ym = pairs.reduce((a, [, y]) => a + y, 0) / n;
   let num = 0;
   let den = 0;
-  for (let i = 0; i < n; i++) {
-    num += (xs[i] - xm) * (values[i] - ym);
-    den += (xs[i] - xm) ** 2;
+  for (const [x, y] of pairs) {
+    num += (x - xm) * (y - ym);
+    den += (x - xm) ** 2;
   }
   const slope = den === 0 ? 0 : num / den;
   const intercept = ym - slope * xm;
-  return xs.map((x) => +(slope * x + intercept).toFixed(2));
+  return values.map((v, x) => (typeof v === 'number' && isFinite(v) ? +(slope * x + intercept).toFixed(2) : null));
 }
 
 /* ------------------------------------------------------------------ *
@@ -334,11 +338,16 @@ export function scopedKpiValue(
 /* ------------------------------------------------------------------ *
  * Trend granularity transforms.
  * ------------------------------------------------------------------ */
-export function quarterlyToMonthly(qArr: number[], seed: string): number[] {
-  const out: number[] = [];
+export function quarterlyToMonthly(qArr: (number | null)[], seed: string): (number | null)[] {
+  const out: (number | null)[] = [];
   for (let i = 0; i < 14; i++) {
     const cur = qArr[i];
-    const next = i < 13 ? qArr[i + 1] : qArr[i] + (qArr[i] - qArr[i - 1]);
+    if (cur == null) {
+      out.push(null, null, null);
+      continue;
+    }
+    const rawNext = i < 13 ? qArr[i + 1] : cur + (cur - (qArr[i - 1] ?? cur));
+    const next = rawNext == null ? cur : rawNext; // flat into a gap, never NaN
     for (let m = 0; m < 3; m++) {
       const t = m / 3;
       const v = cur + (next - cur) * t;
@@ -350,9 +359,49 @@ export function quarterlyToMonthly(qArr: number[], seed: string): number[] {
   return out;
 }
 
-export function quarterlyToYearly(qArr: number[]): number[] {
+/**
+ * Roll a native MONTHLY series (42 points, Jan 2023 → Jun 2026) up to the 14
+ * quarterly buckets. `agg` is 'sum' for count series and 'mean' for rates/percents.
+ * Empty buckets stay null (honest gaps).
+ */
+export function monthlyToQuarterly(
+  mArr: (number | null)[],
+  agg: 'sum' | 'mean' = 'mean'
+): (number | null)[] {
+  const out: (number | null)[] = [];
+  for (let q = 0; q < 14; q++) {
+    const chunk = mArr.slice(q * 3, q * 3 + 3).filter((v): v is number => typeof v === 'number' && isFinite(v));
+    if (!chunk.length) {
+      out.push(null);
+      continue;
+    }
+    const total = chunk.reduce((a, b) => a + b, 0);
+    out.push(+(agg === 'sum' ? total : total / chunk.length).toFixed(2));
+  }
+  return out;
+}
+
+/** Roll a native monthly series up to the 4 yearly buckets (2023, 2024, 2025, 2026-YTD). */
+export function monthlyToYearly(
+  mArr: (number | null)[],
+  agg: 'sum' | 'mean' = 'mean'
+): (number | null)[] {
+  const groups = [mArr.slice(0, 12), mArr.slice(12, 24), mArr.slice(24, 36), mArr.slice(36, 42)];
+  return groups.map((g) => {
+    const f = g.filter((v): v is number => typeof v === 'number' && isFinite(v));
+    if (!f.length) return null;
+    const total = f.reduce((a, b) => a + b, 0);
+    return +(agg === 'sum' ? total : total / f.length).toFixed(2);
+  });
+}
+
+export function quarterlyToYearly(qArr: (number | null)[]): (number | null)[] {
   const groups = [qArr.slice(0, 4), qArr.slice(4, 8), qArr.slice(8, 12), qArr.slice(12, 14)];
-  return groups.map((g) => +(g.reduce((a, b) => a + b, 0) / g.length).toFixed(2));
+  return groups.map((g) => {
+    const finite = g.filter((v): v is number => typeof v === 'number' && isFinite(v));
+    if (!finite.length) return null;
+    return +(finite.reduce((a, b) => a + b, 0) / finite.length).toFixed(2);
+  });
 }
 
 /* ------------------------------------------------------------------ *

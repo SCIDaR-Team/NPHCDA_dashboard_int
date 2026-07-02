@@ -54,14 +54,23 @@ src/
 
 ## Data & real-dataset integration
 
-All data flows through a single `DataSource` interface, so wiring in live data is a
-config + one-file change (no UI edits). See **[docs/DATA_INTEGRATION.md](docs/DATA_INTEGRATION.md)**
-and the source-column map in `NPHCDA Data Indicator Mapping - Sheet1.csv`.
+All data flows through a single `DataSource` interface, so wiring in live data never
+touches UI code. See **[docs/DATA_INTEGRATION.md](docs/DATA_INTEGRATION.md)** and the
+source-column map in `docs/NPHCDA Data Indicator Mapping - Sheet1.csv`.
+
+**Live data is wired in** via a build-time ETL that pulls the real sources (SRH ODK,
+SFM ODK, the public SRH Google Sheet), normalises them onto the preserved indicator
+names, and writes a static snapshot the app reads. Indicators with no source render an
+honest "Data not yet available" state.
 
 ```bash
-# .env.local
-VITE_DATA_SOURCE=api
-VITE_API_BASE_URL=https://your-api/api
+cp etl/.env.etl.example etl/.env.etl   # add the ODK credentials (git-ignored)
+npm run data:refresh                    # fetch sources → public/data-snapshot/measurements.json
+
+# .env.local — pick the data source
+VITE_DATA_SOURCE=snapshot   # real ETL snapshot
+# VITE_DATA_SOURCE=mock     # illustrative figures (default)
+# VITE_DATA_SOURCE=api      # a live backend (set VITE_API_BASE_URL)
 ```
 
 ## Design & data integrity notes

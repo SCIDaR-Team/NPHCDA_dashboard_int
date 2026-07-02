@@ -154,7 +154,7 @@ export function OverviewPage() {
             ))}
           </div>
         ) : (
-          <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {snapshot.map(({ block, ind }) => (
               <SnapshotCard key={block} block={block} ind={ind} blocks={blocks} onClick={() => goToBlock(block)} />
             ))}
@@ -180,7 +180,7 @@ function SnapshotCard({
   const filter = useFilterStore(pickFilter);
   if (!ind) {
     return (
-      <Card className="p-5" hover>
+      <Card className="h-full p-5" hover>
         <h3 className="text-sm font-bold text-text">{block}</h3>
         <p className="mt-2 text-xs text-muted">No Tier 1 headline indicator yet.</p>
       </Card>
@@ -192,7 +192,7 @@ function SnapshotCard({
   const goodness = goodnessFor({ inverse: ind.inverse, pct });
 
   return (
-    <Card hover onClick={onClick} className="group cursor-pointer p-5">
+    <Card hover onClick={onClick} className="group flex h-full cursor-pointer flex-col p-5">
       <h3 className="text-sm font-bold text-text">{block}</h3>
       <div className="mt-3 flex items-center gap-4">
         <div className="relative flex-shrink-0">
@@ -206,7 +206,7 @@ function SnapshotCard({
           <div className="mt-0.5 text-[11px] leading-snug text-muted">{cleanName(ind.name)}</div>
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-end">
+      <div className="mt-auto flex items-center justify-end pt-4">
         <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-brand-bright">
           View details <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
         </span>

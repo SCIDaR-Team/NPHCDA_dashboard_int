@@ -82,109 +82,73 @@ export function LandingPage() {
               'radial-gradient(60% 50% at 50% 0%, rgb(var(--c-green) / 0.7), transparent 70%)',
           }}
         />
-        <div className="relative mx-auto max-w-4xl px-5 pb-20 pt-20 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-brand-bright">
-              <ShieldCheck size={14} /> National PHC Decision-Support Platform
-            </span>
-            <h1 className="mt-6 text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
-              PHC performance for Nigeria,{' '}
-              <span className="bg-gradient-to-r from-brand-bright to-brand-dark bg-clip-text text-transparent">
-                in one executive view
+        <div className="relative mx-auto max-w-6xl px-5 pb-20 pt-16 sm:pt-20">
+          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+            {/* Copy */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-center lg:text-left"
+            >
+              <span className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-brand-bright">
+                <ShieldCheck size={14} /> National PHC Decision-Support Platform
               </span>
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-text-soft sm:text-lg">
-              A consolidated, executive view of Primary Health Care across Nigeria, organised around
-              three simple questions: is the facility <strong>ready</strong> to deliver care, is it{' '}
-              <strong>stocked</strong> to deliver care, and is it actually <strong>delivering</strong> care.
-            </p>
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link to="/login">
-                <Button size="lg" className="w-full sm:w-auto">
-                  Launch dashboard <ArrowRight size={18} />
-                </Button>
-              </Link>
-              <a href="#features">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                  Explore features
-                </Button>
-              </a>
-            </div>
-          </motion.div>
-
-          {/* Stats */}
-          <motion.div
-            className="mx-auto mt-16 grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-4"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.15 }}
-          >
-            {STATS.map((s) => (
-              <div key={s.l} className="rounded-card border border-border bg-bg-elev p-5 shadow-card">
-                <div className="text-3xl font-extrabold text-brand-bright">{s.v}</div>
-                <div className="mt-1 text-xs font-medium text-muted">{s.l}</div>
+              <h1 className="mt-6 text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
+                PHC performance for Nigeria,{' '}
+                <span className="bg-gradient-to-r from-brand-bright to-brand-dark bg-clip-text text-transparent">
+                  in one executive view
+                </span>
+              </h1>
+              <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-text-soft sm:text-lg lg:mx-0">
+                A consolidated, executive view of Primary Health Care across Nigeria, organised around
+                three simple questions: is the facility <strong>ready</strong> to deliver care, is it{' '}
+                <strong>stocked</strong> to deliver care, and is it actually <strong>delivering</strong> care.
+              </p>
+              <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
+                <Link to="/login">
+                  <Button size="lg" className="w-full sm:w-auto">
+                    Launch dashboard <ArrowRight size={18} />
+                  </Button>
+                </Link>
+                <a href="#features">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                    Explore features
+                  </Button>
+                </a>
               </div>
-            ))}
-          </motion.div>
+
+              {/* Stats */}
+              <motion.div
+                className="mx-auto mt-12 grid max-w-md grid-cols-2 gap-4 sm:grid-cols-4 lg:mx-0 lg:max-w-none"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.15 }}
+              >
+                {STATS.map((s) => (
+                  <div key={s.l} className="rounded-card border border-border bg-bg-elev p-4 shadow-card">
+                    <div className="text-2xl font-extrabold text-brand-bright">{s.v}</div>
+                    <div className="mt-1 text-xs font-medium text-muted">{s.l}</div>
+                  </div>
+                ))}
+              </motion.div>
+            </motion.div>
+
+            {/* Hero visual */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="relative mx-auto w-full max-w-md lg:max-w-none"
+            >
+              <img
+                src="/images/hero_facility.png"
+                alt="A primary health care facility supported by the NPHCDA platform"
+                className="w-full drop-shadow-2xl"
+              />
+            </motion.div>
+          </div>
         </div>
-      </section>
-
-      {/* Dashboard preview mockup (pure CSS, no images) */}
-      <section className="mx-auto -mt-2 max-w-5xl px-5">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="relative overflow-hidden rounded-card border border-border bg-bg-elev p-5 shadow-card-hover"
-        >
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.07]"
-            style={{ background: 'radial-gradient(50% 60% at 50% 0%, rgb(var(--c-green)), transparent 70%)' }}
-          />
-          {/* window chrome */}
-          <div className="relative mb-4 flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-danger/70" />
-            <span className="h-2.5 w-2.5 rounded-full bg-warning/70" />
-            <span className="h-2.5 w-2.5 rounded-full bg-brand/70" />
-          </div>
-          <div className="relative grid gap-4 sm:grid-cols-3">
-            {[
-              ['Penta 3 Coverage', '86.4%', 86],
-              ['Wards w/ Functional PHC', '68.2%', 68],
-              ['Patient Satisfaction', '76.9%', 77],
-            ].map(([label, val, pct]) => (
-              <div key={label as string} className="rounded-xl border border-border bg-bg-elev-2/60 p-4">
-                <div className="text-[11px] text-muted">{label}</div>
-                <div className="mt-1 text-2xl font-extrabold text-text">{val}</div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-elev-3">
-                  <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* faux bar chart */}
-          <div className="relative mt-4 rounded-xl border border-border bg-bg-elev-2/60 p-4">
-            <div className="mb-3 text-[11px] font-semibold text-muted">Programme performance by state</div>
-            <div className="flex h-24 items-end gap-1.5">
-              {[62, 48, 71, 55, 83, 40, 67, 74, 58, 70, 45, 79, 64, 52, 68, 60].map((h, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t"
-                  style={{
-                    height: `${h}%`,
-                    background: `linear-gradient(180deg, rgb(var(--c-green-bright)), rgb(var(--c-green-dark)))`,
-                    opacity: 0.55 + (h / 100) * 0.45,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </motion.div>
       </section>
 
       {/* About NPHCDA (icon + gradient, no photos) */}

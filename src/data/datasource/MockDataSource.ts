@@ -9,6 +9,13 @@ import {
 import { trendSeries } from '../mock/trends';
 import { FD_DATA } from '../mock/facilities';
 import { STATE_SCORE, STATE_DONORS } from '../geo/states';
+import { quarterlyToMonthly } from '../calculations';
+
+/** The app renders trends at native MONTHLY resolution; the mock is authored
+ *  quarterly, so expand it to 42 monthly points at the source boundary. */
+const monthlyTrendSeries = Object.fromEntries(
+  Object.entries(trendSeries).map(([name, q]) => [name, quarterlyToMonthly(q, name)])
+);
 
 /**
  * Mock data source — serves the preserved illustrative figures.
@@ -43,7 +50,7 @@ export class MockDataSource implements DataSource {
     return resolve(DEFINITIONS);
   }
   getTrendSeries() {
-    return resolve(trendSeries);
+    return resolve(monthlyTrendSeries);
   }
   getFacilities() {
     return resolve(FD_DATA);
