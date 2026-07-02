@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-01T23:28:47.031Z",
+  "generatedAt": "2026-07-02T10:26:54.741Z",
   "period": {
     "quarters": [
       "2025 Q1",
@@ -25,7 +25,7 @@
       "name": "SFM ODK",
       "ok": true,
       "error": null,
-      "rowsFetched": 3883,
+      "rowsFetched": 3886,
       "facilities": 382
     },
     {
@@ -43,8 +43,8 @@
   },
   "indicators": {
     "% of women with a live birth who attended ANC 1": {
-      "pct": 80.9,
-      "value": "80.9%",
+      "pct": 81,
+      "value": "81%",
       "n": 631,
       "meta": "Pools SRH (live-birth buckets, ≥1 visit ÷ live births) with SFM (direct ANC1 visit count ÷ facility deliveries)."
     },
@@ -164,8 +164,8 @@
         {
           "label": "Facility deliveries (latest month)",
           "value": "4,248",
-          "delta": "+44.8% over period",
-          "dir": "up",
+          "delta": "-96.3% over period",
+          "dir": "down",
           "target": "Rising utilization of facility-based care",
           "spark": [
             13172,
@@ -180,14 +180,15 @@
             18409,
             19833,
             19803,
-            19079
+            19079,
+            492
           ],
           "pct": 100,
           "inverse": false
         },
         {
           "label": "ANC1 coverage",
-          "value": "80.9%",
+          "value": "81%",
           "delta": "-4.8 pts over period",
           "dir": "down",
           "target": "Entry point into the antenatal pathway",
@@ -198,8 +199,8 @@
             84.8,
             79.6
           ],
-          "ring": 80.9,
-          "pct": 80.9,
+          "ring": 81,
+          "pct": 81,
           "inverse": false
         }
       ]
@@ -320,7 +321,7 @@
       19833,
       19803,
       19079,
-      null
+      492
     ],
     "ANC1 coverage (%)": [
       null,
@@ -508,12 +509,12 @@
     "Ondo": 36.2,
     "Akwa Ibom": 25.3,
     "Taraba": 31.3,
+    "Niger": 28,
+    "Delta": 1.8,
+    "Plateau": 33.7,
     "Kano": 44.2,
     "Ebonyi": 26.8,
-    "Delta": 1.8,
     "Lagos": 68.8,
-    "Plateau": 33.7,
-    "Niger": 28,
     "Katsina": 20.3
   },
   "facilities": [
@@ -3506,6 +3507,42 @@
       "maternalDeaths": 1
     },
     {
+      "state": "Niger",
+      "lga": "Lavun",
+      "ward": "Lavun",
+      "facility": "Phcc Manbe",
+      "type": "BEmONC",
+      "status": "L1",
+      "tracer": 0,
+      "satisfaction": 0,
+      "penta3": 0,
+      "maternalDeaths": 0
+    },
+    {
+      "state": "Delta",
+      "lga": "Sapele",
+      "ward": "Sapele",
+      "facility": "Gana Phc",
+      "type": "BEmONC",
+      "status": "L1",
+      "tracer": 0,
+      "satisfaction": 0,
+      "penta3": 0,
+      "maternalDeaths": 0
+    },
+    {
+      "state": "Plateau",
+      "lga": "Mangu",
+      "ward": "Mangu",
+      "facility": "Phc Pushit",
+      "type": "BEmONC",
+      "status": "L1",
+      "tracer": 0,
+      "satisfaction": 0,
+      "penta3": 0,
+      "maternalDeaths": 0
+    },
+    {
       "state": "Kano",
       "lga": "Madobi",
       "ward": "Madobi",
@@ -6051,18 +6088,6 @@
     },
     {
       "state": "Delta",
-      "lga": "Sapele",
-      "ward": "Sapele",
-      "facility": "Gana Phc",
-      "type": "BEmONC",
-      "status": "L1",
-      "tracer": 0,
-      "satisfaction": 0,
-      "penta3": 0,
-      "maternalDeaths": 0
-    },
-    {
-      "state": "Delta",
       "lga": "Ika South",
       "ward": "Ika South",
       "facility": "Gh Agbor Alidinma",
@@ -7682,18 +7707,6 @@
       "maternalDeaths": 0
     },
     {
-      "state": "Plateau",
-      "lga": "Mangu",
-      "ward": "Mangu",
-      "facility": "Phc Pushit",
-      "type": "BEmONC",
-      "status": "L1",
-      "tracer": 0,
-      "satisfaction": 0,
-      "penta3": 0,
-      "maternalDeaths": 0
-    },
-    {
       "state": "Katsina",
       "lga": "Sandamu",
       "ward": "Sandamu",
@@ -7833,18 +7846,6 @@
       "type": "CEmONC",
       "status": "L1",
       "tracer": 5,
-      "satisfaction": 0,
-      "penta3": 0,
-      "maternalDeaths": 0
-    },
-    {
-      "state": "Niger",
-      "lga": "Lavun",
-      "ward": "Lavun",
-      "facility": "Phcc Manbe",
-      "type": "BEmONC",
-      "status": "L1",
-      "tracer": 0,
       "satisfaction": 0,
       "penta3": 0,
       "maternalDeaths": 0
