@@ -36,8 +36,9 @@ Thumbs.db
 # ETL credentials (never commit real source logins)
 etl/.env.etl
 
-# PFMO reference material — contains live API key PDF; keep local only
-docs/PFMO/
+# Internal docs — contain live source credentials, API keys & program data.
+# Keep local only; never publish to the repo.
+docs/
 
 # Misc
 .cache/
