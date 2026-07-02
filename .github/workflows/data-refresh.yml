@@ -1,0 +1,83 @@
+name: Monthly data refresh
+
+# Pulls the live sources (SRH ODK, SFM ODK, SRH Google Sheet) via the ETL and
+# refreshes public/data-snapshot/measurements.json. Commits ONLY when the data
+# actually changed, which triggers a Vercel redeploy of the live site.
+#
+# Credentials come from repo Secrets (Settings → Secrets and variables → Actions):
+#   SRH_ODK_USER, SRH_ODK_PASS, SFM_ODK_USER, SFM_ODK_PASS
+# They are never written to the repo and never shipped to the browser.
+
+on:
+  schedule:
+    # 06:17 UTC on the 10th of every month = 07:17 WAT (Nigeria).
+    # Odd minute avoids the congested top-of-hour; GitHub may still delay it.
+    - cron: '17 6 10 * *'
+  workflow_dispatch: {}   # manual "Run workflow" button for on-demand refreshes
+
+# Allow the job to push the refreshed snapshot back to the repo.
+permissions:
+  contents: write
+
+# Never let two refreshes run at once.
+concurrency:
+  group: data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ETL (pull live sources → snapshot)
+        env:
+          SRH_ODK_USER: ${{ secrets.SRH_ODK_USER }}
+          SRH_ODK_PASS: ${{ secrets.SRH_ODK_PASS }}
+          SFM_ODK_USER: ${{ secrets.SFM_ODK_USER }}
+          SFM_ODK_PASS: ${{ secrets.SFM_ODK_PASS }}
+        run: npm run data:refresh
+
+      - name: Verify all sources succeeded
+        # Guard: if a source failed (e.g. bad/missing credentials) the ETL still
+        # writes a degraded snapshot. Abort here so we never overwrite good live
+        # data with empties. Keeps last month's snapshot until the issue is fixed.
+        run: |
+          SNAP=public/data-snapshot/measurements.json
+          bad=$(jq -r '[.sources[] | select(.ok == false)] | length' "$SNAP")
+          rows=$(jq -r '[.sources[].rowsFetched] | add // 0' "$SNAP")
+          if [ "$bad" -gt 0 ] || [ "$rows" -eq 0 ]; then
+            echo "::error::ETL reported $bad failed source(s) and $rows total rows — aborting to protect existing data."
+            jq '.sources' "$SNAP"
+            exit 1
+          fi
+          echo "All sources OK ($rows total rows fetched)."
+
+      - name: Commit & push if data changed
+        # Compare against the committed snapshot, IGNORING the volatile
+        # generatedAt timestamp, so we only redeploy on real data changes.
+        run: |
+          SNAP=public/data-snapshot/measurements.json
+          git show HEAD:"$SNAP" > /tmp/old.json 2>/dev/null || echo '{}' > /tmp/old.json
+          if diff -q \
+              <(jq -S 'del(.generatedAt)' /tmp/old.json) \
+              <(jq -S 'del(.generatedAt)' "$SNAP") >/dev/null; then
+            echo "No data change — nothing to commit."
+            exit 0
+          fi
+          echo "Data changed — committing refreshed snapshot."
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$SNAP"
+          git commit -m "data: monthly snapshot refresh ($(date -u +%Y-%m-%d))"
+          git push
