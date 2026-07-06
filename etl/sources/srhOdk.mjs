@@ -7,7 +7,7 @@
  */
 import { fetchAllOData } from '../lib/odata.mjs';
 import { dig, num, collectCommStatus, isAvailable, toQuarter, toMonthLabel } from '../lib/util.mjs';
-import { normState, titleCase } from '../lib/states.mjs';
+import { normState, titleCase, cleanName, zoneForState, donorsForState } from '../lib/states.mjs';
 
 const SERVICE_URL = 'https://odk.mine.bz/v1/projects/1239/forms/SRH%20Routine%20tool.svc';
 
@@ -77,11 +77,15 @@ function flatten(row) {
   const modern = dig(row, 'group_ie83b74.fp.group_ns6us35') ?? {};
   const modernUnits = FP_MODERN.reduce((sum, k) => sum + num(modern[k]), 0);
   const livebirths = num(dig(row, P.lb0)) + num(dig(row, P.lb1_4)) + num(dig(row, P.lb5_7)) + num(dig(row, P.lb8));
+  const state = normState(row.STATE);
 
   return {
-    state: normState(row.STATE),
+    state,
+    // Derived filter dimensions (deterministic from state; see lib/states.mjs).
+    zone: zoneForState(state),
+    donor: donorsForState(state),
     lga: titleCase(row.LGA),
-    facility: row.facility_name || 'Unknown facility',
+    facility: cleanName(row.facility_name) || 'Unknown facility',
     facilityType: row.facility_type || null, // BEmONC / CEmONC
     quarter: reportingPeriod(row).quarter,
     month: reportingPeriod(row).month,

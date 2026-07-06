@@ -5,6 +5,18 @@ import { MockAuthProvider } from './MockAuthProvider';
 /** The active auth provider. Swap here (or behind an env flag) to go live. */
 const provider: AuthProvider = new MockAuthProvider();
 
+/**
+ * Default workspace user used when no session is persisted. Present because the
+ * login page is hidden from routing; remove once the auth flow is restored.
+ */
+const DEFAULT_USER: User = {
+  id: 'u-default',
+  name: 'NPHCDA Team',
+  email: 'team@nphcda.gov.ng',
+  role: 'National Administrator',
+  avatarColor: '#00A859',
+};
+
 interface AuthState {
   user: User | null;
   status: 'idle' | 'loading' | 'authenticated' | 'error';
@@ -24,8 +36,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   bootstrap: async () => {
-    const user = await provider.getCurrentUser();
-    set({ user, status: user ? 'authenticated' : 'idle', booted: true });
+    // The login flow is currently removed from routing (Home is the single
+    // entry point), so there is no interactive way to establish a session.
+    // Fall back to a default workspace user when none is persisted, keeping
+    // the authenticated shell (profile menu, settings) fully functional.
+    const existing = await provider.getCurrentUser();
+    const user = existing ?? DEFAULT_USER;
+    set({ user, status: 'authenticated', booted: true });
   },
 
   login: async (creds) => {

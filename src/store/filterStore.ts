@@ -8,8 +8,10 @@ export const EMPTY_FILTER: FilterState = {
   state: '',
   lga: '',
   ward: '',
+  facilityType: '',
   facility: '',
-  period: '',
+  year: '',
+  month: '',
 };
 
 interface FilterStore extends FilterState {
@@ -31,7 +33,7 @@ export const useFilterStore = create<FilterStore>((set, get) => ({
   apply: (next) => set({ ...next }),
   activeCount: () => {
     const s = get();
-    return (['donor', 'zone', 'state', 'lga', 'ward', 'facility', 'search', 'period'] as const).filter(
+    return (['donor', 'zone', 'state', 'lga', 'ward', 'facilityType', 'facility', 'search', 'year', 'month'] as const).filter(
       (k) => s[k]
     ).length;
   },
@@ -46,7 +48,9 @@ export function pickFilter(s: FilterStore): FilterState {
     state: s.state,
     lga: s.lga,
     ward: s.ward,
+    facilityType: s.facilityType,
     facility: s.facility,
-    period: s.period,
+    year: s.year,
+    month: s.month,
   };
 }

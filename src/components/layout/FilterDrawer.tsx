@@ -5,16 +5,29 @@ import { Button, Input, Select, FieldLabel } from '@/components/ui';
 import { useFilterStore, EMPTY_FILTER } from '@/store/filterStore';
 import { useSavedViewsStore } from '@/store/savedViewsStore';
 import { useNotificationStore } from '@/store/notificationStore';
-import { ALL_STATES, ZONE_STATES, ZONE_OF_STATE, ALL_DONORS } from '@/data/geo/states';
-import { FD_DATA } from '@/data/mock/facilities';
-import { lgasForState, wardsForLga, monthLabels } from '@/data/calculations';
+import { ZONE_OF_STATE } from '@/data/geo/states';
+import { getDataSource } from '@/data/datasource';
+import { useAsync } from '@/hooks/useAsync';
 import type { FilterState } from '@/data/types';
 import { useLocation } from 'react-router-dom';
+import { useSnapshotStore } from '@/store/snapshotStore';
+
+/** Minimal geography shape the option lists key on (roster rows + MAMII facts). */
+interface GeoRow {
+  state: string;
+  zone?: string;
+  donor?: string[];
+  lga: string;
+  facility: string;
+  type: string | null;
+}
 
 const toOpts = (vals: string[], placeholder: string) => [
   { value: '', label: placeholder },
   ...vals.map((v) => ({ value: v, label: v })),
 ];
+const distinct = (vals: (string | undefined | null)[]) =>
+  Array.from(new Set(vals.filter((v): v is string => !!v))).sort();
 
 export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const store = useFilterStore();
@@ -22,6 +35,25 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
   const addView = useSavedViewsStore((s) => s.add);
   const toast = useNotificationStore((s) => s.toast);
   const location = useLocation();
+
+  // Every option list is derived from REAL data, so any value the user can pick
+  // corresponds to data that actually exists: the facility register PLUS MAMII's
+  // geography (its 19 extra states / their LGAs & facilities), so MAMII-covered
+  // states are selectable and its indicators rescope. MAMII rows are added for
+  // option-building only — they never enter the roster / Facility Deepdive (MAMII
+  // carries no per-facility metrics or functional status).
+  const ds = getDataSource();
+  const { data: facilities } = useAsync(() => ds.getFacilities());
+  const mamiiFacts = useSnapshotStore((s) => s.facts?.mamii);
+  const FAC = useMemo<GeoRow[]>(() => {
+    const roster: GeoRow[] = (facilities ?? []).map((f) => ({
+      state: f.state, zone: f.zone, donor: f.donor, lga: f.lga, facility: f.facility, type: f.type,
+    }));
+    const mamiiGeo: GeoRow[] = (mamiiFacts ?? []).map((r) => ({
+      state: r.state, zone: r.zone, donor: r.donor, lga: r.lga, facility: r.facility, type: null,
+    }));
+    return [...roster, ...mamiiGeo];
+  }, [facilities, mamiiFacts]);
 
   // Sync draft from the live store whenever the drawer opens.
   useEffect(() => {
@@ -33,8 +65,10 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
         state: store.state,
         lga: store.lga,
         ward: store.ward,
+        facilityType: store.facilityType,
         facility: store.facility,
-        period: store.period,
+        year: store.year,
+        month: store.month,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -42,43 +76,39 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
 
   const set = (patch: Partial<FilterState>) => setDraft((d) => ({ ...d, ...patch }));
 
-  // Cascading option lists.
+  const zoneOptions = useMemo(() => distinct(FAC.map((f) => f.zone)), [FAC]);
+  const donorOptions = useMemo(() => distinct(FAC.flatMap((f) => f.donor ?? [])), [FAC]);
+  const typeOptions = useMemo(() => distinct(FAC.map((f) => f.type)), [FAC]);
+
   const stateOptions = useMemo(() => {
-    const list = draft.zone ? ZONE_STATES[draft.zone] : ALL_STATES;
-    return toOpts([...list].sort(), 'All states');
-  }, [draft.zone]);
+    const src = draft.zone ? FAC.filter((f) => f.zone === draft.zone) : FAC;
+    return toOpts(distinct(src.map((f) => f.state)), 'All states');
+  }, [FAC, draft.zone]);
 
   const lgaOptions = useMemo(
-    () => (draft.state ? toOpts(lgasForState(draft.state), 'All LGAs') : toOpts([], 'All LGAs')),
-    [draft.state]
-  );
-
-  const wardOptions = useMemo(
-    () => (draft.lga ? toOpts(wardsForLga(draft.lga), 'All wards') : toOpts([], 'All wards')),
-    [draft.lga]
+    () => (draft.state ? toOpts(distinct(FAC.filter((f) => f.state === draft.state).map((f) => f.lga)), 'All LGAs') : toOpts([], 'All LGAs')),
+    [FAC, draft.state]
   );
 
   const facilityOptions = useMemo(() => {
-    let rows = FD_DATA;
-    if (draft.state) rows = rows.filter((r) => r.state === draft.state);
-    if (draft.lga) rows = rows.filter((r) => r.lga === draft.lga);
-    if (draft.ward) rows = rows.filter((r) => r.ward === draft.ward);
-    return toOpts(rows.map((r) => r.facility), 'All facilities');
-  }, [draft.state, draft.lga, draft.ward]);
+    let src = FAC;
+    if (draft.state) src = src.filter((f) => f.state === draft.state);
+    if (draft.lga) src = src.filter((f) => f.lga === draft.lga);
+    if (draft.facilityType) src = src.filter((f) => f.type === draft.facilityType);
+    return toOpts(distinct(src.map((f) => f.facility)), 'All facilities');
+  }, [FAC, draft.state, draft.lga, draft.facilityType]);
 
-  const periodOptions = useMemo(() => toOpts([...monthLabels].reverse(), 'Latest month'), []);
+  const yearOptions = useMemo(() => ['2027', '2026', '2025'], []);
+  const monthOptions = useMemo(
+    () => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    []
+  );
 
-  const onZone = (zone: string) => set({ zone, state: '', lga: '', ward: '', facility: '' });
+  const onZone = (zone: string) => set({ zone, state: '', lga: '', facility: '' });
   const onState = (state: string) =>
-    set({
-      state,
-      zone: state ? ZONE_OF_STATE[state] : draft.zone,
-      lga: '',
-      ward: '',
-      facility: '',
-    });
-  const onLga = (lga: string) => set({ lga, ward: '', facility: '' });
-  const onWard = (ward: string) => set({ ward, facility: '' });
+    set({ state, zone: state ? ZONE_OF_STATE[state] ?? draft.zone : draft.zone, lga: '', facility: '' });
+  const onLga = (lga: string) => set({ lga, facility: '' });
+  const onType = (facilityType: string) => set({ facilityType, facility: '' });
 
   const apply = () => {
     store.apply(draft);
@@ -93,7 +123,7 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
   const saveView = () => {
     store.apply(draft);
     const label =
-      [draft.state, draft.zone, draft.donor].filter(Boolean).join(' · ') || 'Full national scope';
+      [draft.state, draft.zone, draft.donor, draft.facilityType].filter(Boolean).join(' · ') || 'Full national scope';
     addView({ name: label, page: location.pathname, filter: draft });
     toast({ tone: 'success', title: 'View saved', description: label });
     onClose();
@@ -132,17 +162,13 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
           <Select
             value={draft.donor}
             onChange={(e) => set({ donor: e.target.value })}
-            options={toOpts(ALL_DONORS, 'All donors / programmes')}
+            options={toOpts(donorOptions, 'All donors / programmes')}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel>Zone</FieldLabel>
-            <Select
-              value={draft.zone}
-              onChange={(e) => onZone(e.target.value)}
-              options={toOpts(Object.keys(ZONE_STATES), 'All zones')}
-            />
+            <Select value={draft.zone} onChange={(e) => onZone(e.target.value)} options={toOpts(zoneOptions, 'All zones')} />
           </div>
           <div>
             <FieldLabel>State</FieldLabel>
@@ -152,38 +178,33 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel>LGA</FieldLabel>
-            <Select
-              value={draft.lga}
-              onChange={(e) => onLga(e.target.value)}
-              options={lgaOptions}
-              disabled={!draft.state}
-            />
+            <Select value={draft.lga} onChange={(e) => onLga(e.target.value)} options={lgaOptions} disabled={!draft.state} />
           </div>
           <div>
             <FieldLabel>Ward</FieldLabel>
-            <Select
-              value={draft.ward}
-              onChange={(e) => onWard(e.target.value)}
-              options={wardOptions}
-              disabled={!draft.lga}
-            />
+            <Select value="" onChange={() => {}} options={[{ value: '', label: 'Not collected' }]} disabled />
+            <p className="mt-1 text-[10px] leading-snug text-muted">Ward is not collected by any source yet.</p>
           </div>
         </div>
-        <div>
-          <FieldLabel>Facility</FieldLabel>
-          <Select
-            value={draft.facility}
-            onChange={(e) => set({ facility: e.target.value })}
-            options={facilityOptions}
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <FieldLabel>Facility type</FieldLabel>
+            <Select value={draft.facilityType} onChange={(e) => onType(e.target.value)} options={toOpts(typeOptions, 'All types')} />
+          </div>
+          <div>
+            <FieldLabel>Facility</FieldLabel>
+            <Select value={draft.facility} onChange={(e) => set({ facility: e.target.value })} options={facilityOptions} />
+          </div>
         </div>
-        <div>
-          <FieldLabel>Reporting period</FieldLabel>
-          <Select
-            value={draft.period}
-            onChange={(e) => set({ period: e.target.value })}
-            options={periodOptions}
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <FieldLabel>Year</FieldLabel>
+            <Select value={draft.year} onChange={(e) => set({ year: e.target.value })} options={toOpts(yearOptions, 'All years')} />
+          </div>
+          <div>
+            <FieldLabel>Month</FieldLabel>
+            <Select value={draft.month} onChange={(e) => set({ month: e.target.value })} options={toOpts(monthOptions, 'All months')} />
+          </div>
         </div>
 
         <button

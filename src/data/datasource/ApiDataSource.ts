@@ -26,7 +26,7 @@ import type {
  *   GET {baseUrl}/state-donors    -> Record<string,string[]>
  *
  * Crucially, the *indicator names* returned must match the catalogue in
- * mock/indicators.ts so the preserved calculations and UI keep working unchanged.
+ * the catalogue (src/data/catalogue.ts) so the preserved calculations and UI keep working unchanged.
  */
 export class ApiDataSource implements DataSource {
   readonly meta = { mode: 'api' as const, label: 'Live data' };

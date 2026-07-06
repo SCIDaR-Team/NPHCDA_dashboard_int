@@ -96,17 +96,6 @@ export const STATE_CENTROIDS: Record<string, [number, number]> = {
 export const MAP_VBW = 800;
 export const MAP_VBH = 614.67;
 
-/** Mock 0–100 composite performance score per state (drives the choropleth). */
-export const STATE_SCORE: Record<string, number> = {
-  Sokoto:48, Katsina:45, Kebbi:50, Zamfara:42, Kano:58, Jigawa:47, Yobe:40, Borno:38,
-  Niger:55, Kaduna:60, Bauchi:52, Gombe:54, Adamawa:50,
-  Kwara:64, FCT:82, Nasarawa:61, Plateau:59, Taraba:53,
-  Oyo:68, Osun:70, Ekiti:73, Kogi:62, Benue:57,
-  Ogun:71, Ondo:74, Edo:69, Anambra:75, Enugu:72, Ebonyi:63,
-  Lagos:85, Delta:67, Imo:71, Abia:70, "Cross River":66,
-  Bayelsa:65, Rivers:73, "Akwa Ibom":76
-};
-
 /** SRH/MNH donor footprint per state (per SRH_Donor_map.pptx). */
 export const STATE_DONORS: Record<string, string[]> = {
   Sokoto:["EU-UNFPA","CIFF"], Katsina:["Gates Foundation"], Jigawa:["CIFF"], Kano:["Gates Foundation"], Yobe:["Gates Foundation"], Borno:["Gates Foundation"],

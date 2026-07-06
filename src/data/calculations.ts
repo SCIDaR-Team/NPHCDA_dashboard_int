@@ -1,37 +1,26 @@
 /**
- * Preserved calculation engine.
+ * Calculation & scoping engine — REAL DATA ONLY.
  *
- * Every function here is ported VERBATIM (math-identical) from the original
- * dashboard so that figures, colours, breakdowns and trend transforms match
- * exactly. The only change is that filter-aware helpers now take an explicit
- * `FilterState` argument instead of reading a module-global, which keeps them
- * pure and testable.
- *
- * When real data is wired in, these same functions run unchanged — they operate
- * on the indicator `pct`/`value` fields regardless of origin.
+ * The colour scale, goodness/status helpers and trend granularity transforms are
+ * ported verbatim from the original dashboard. All filter-aware scoping now reads
+ * ONLY the real disaggregated measurements the ETL emits (state / zone / donor /
+ * LGA / facility / period). Nothing is fabricated: when a filter selects a scope
+ * we have no real measurement for, the caller renders a "No data for this scope"
+ * empty state. There is no pseudo-random jitter anywhere.
  */
 
-import type { FilterState, Indicator, BreakdownRow, Split4, Split4Row } from './types';
-import { ALL_STATES, STATE_DONORS, ZONE_OF_STATE } from './geo/states';
+import type { FilterState, Indicator, KpiCard, Split4 } from './types';
+import { ALL_STATES } from './geo/states';
 import { LGAS_BY_STATE } from './geo/lgas';
-import { SRH_STATES, SFM_STATES, LCB_STATES } from './mock/indicators';
+import { SRH_STATES, SFM_STATES, LCB_STATES } from './catalogue';
+import { scopedMeasurements, stateMeasures, facilityMeasures, functionalStatusScopedSplit, mamiiFacilityGeo } from './scopedEngine';
 
-/* ------------------------------------------------------------------ *
- * Deterministic pseudo-random core (seeded by string hash).
- * Identical output to the original ensures the same "mock" figures.
- * ------------------------------------------------------------------ */
-export function hashStr(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  }
-  return h;
-}
+// Re-export the single-dimension distributions (deep-dive chart / overview map),
+// which are derived from the same compound engine so they never diverge.
+export { stateMeasures, facilityMeasures, mamiiFacilityGeo };
 
-export function pseudo(seedStr: string): number {
-  const h = hashStr(seedStr);
-  return (h % 1000) / 1000;
-}
+/** Below this sample size, a scoped figure is flagged as a small sample. */
+export const SMALL_N = 30;
 
 /* ------------------------------------------------------------------ *
  * Colour scale: red → amber → green across a 0–100 "goodness" score.
@@ -54,86 +43,6 @@ export function heatColor(score: number): string {
   const t = (score - lo[0]) / (hi[0] - lo[0] || 1);
   const c = lo[1].map((v, i) => Math.round(v + (hi[1][i] - v) * t));
   return `rgb(${c[0]},${c[1]},${c[2]})`;
-}
-
-export function pctChangeFor(seed: string): number {
-  const p = pseudo(seed + '|chg');
-  return +((p - 0.5) * 30).toFixed(1); // -15..+15
-}
-
-/* ------------------------------------------------------------------ *
- * State / facility breakdowns (deep-dive distributions).
- * ------------------------------------------------------------------ */
-export function stateBreakdown(
-  baseVal: number,
-  statesList?: string[],
-  inverse?: boolean
-): BreakdownRow[] {
-  const list = statesList || ALL_STATES;
-  return list
-    .map((st) => {
-      const p = pseudo(st + '|' + baseVal);
-      let v = baseVal + (p - 0.5) * Math.max(18, baseVal * 0.5);
-      v = Math.max(2, Math.min(98, v));
-      return { label: st, value: +v.toFixed(1), change: pctChangeFor(st + '|' + baseVal) };
-    })
-    .sort((a, b) => (inverse ? a.value - b.value : b.value - a.value));
-}
-
-export const FACILITY_NAME_POOL = [
-  'Central PHC',
-  'Comprehensive Health Centre',
-  'Model PHC',
-  'Cottage Hospital Annex',
-  'Primary Health Clinic',
-  'Ward Health Post',
-  'General Hospital Annex',
-  'Community Health Post',
-];
-export function facilityBreakdown(
-  baseVal: number,
-  statesList?: string[],
-  inverse?: boolean
-): BreakdownRow[] {
-  const list = statesList || ALL_STATES;
-  const facilities: BreakdownRow[] = [];
-  list.forEach((st) => {
-    const stateLgas = LGAS_BY_STATE[st] || [st];
-    for (let i = 0; i < 2; i++) {
-      const lga = stateLgas[hashStr(st + 'lga' + i) % stateLgas.length];
-      const fname = `${FACILITY_NAME_POOL[hashStr(st + i + baseVal) % FACILITY_NAME_POOL.length]}`;
-      const p = pseudo(fname + st + '|' + baseVal);
-      let v = baseVal + (p - 0.5) * Math.max(24, baseVal * 0.65);
-      v = Math.max(2, Math.min(98, v));
-      facilities.push({
-        label: fname,
-        state: st,
-        lga,
-        value: +v.toFixed(1),
-        change: pctChangeFor(fname + st + '|' + baseVal),
-      });
-    }
-  });
-  return facilities.sort((a, b) => (inverse ? a.value - b.value : b.value - a.value));
-}
-
-export function stateSplit4Breakdown(split: Split4): Split4Row[] {
-  return ALL_STATES.map((st) => {
-    const jitter = (key: string, base: number) =>
-      Math.max(1, Math.min(75, base + (pseudo(st + '|' + key) - 0.5) * 26));
-    const l2 = jitter('l2', split.l2);
-    const l1 = jitter('l1', split.l1);
-    const partial = jitter('partial', split.partial);
-    const nonfunc = jitter('nonfunc', split.nonfunc);
-    const sum = l2 + l1 + partial + nonfunc;
-    return {
-      label: st,
-      l2: +((l2 / sum) * 100).toFixed(1),
-      l1: +((l1 / sum) * 100).toFixed(1),
-      partial: +((partial / sum) * 100).toFixed(1),
-      nonfunc: +((nonfunc / sum) * 100).toFixed(1),
-    };
-  }).sort((a, b) => b.l2 + b.l1 - (a.l2 + a.l1));
 }
 
 export function linregress(values: (number | null)[]): (number | null)[] {
@@ -194,7 +103,7 @@ export function coverageNote(ind: Pick<Indicator, 'coverage' | 'tier'>): string 
   if (ind.coverage === 'srh8')
     return `Available for the 8 SRH priority states only (${SRH_STATES.join(', ')}).`;
   if (ind.coverage === 'sfm')
-    return `Available for SFM survey states only - illustrative subset shown (${SFM_STATES.join(', ')}); confirm the actual SFM state list.`;
+    return `Available for SFM survey states only (${SFM_STATES.join(', ')}).`;
   if (ind.coverage === 'lcb')
     return `Available for the 8 Lake Chad Basin border states only (${LCB_STATES.join(', ')}).`;
   if (ind.tier === 2) return `Available for select locations only, not all states - see source for which.`;
@@ -202,112 +111,92 @@ export function coverageNote(ind: Pick<Indicator, 'coverage' | 'tier'>): string 
 }
 
 /* ------------------------------------------------------------------ *
- * Filter-aware scoping (pure: filter passed in explicitly).
+ * Real disaggregated scoping (reads the ETL snapshot store; no fabrication).
  * ------------------------------------------------------------------ */
+
 export function looksLikePercent(value: unknown): boolean {
   return /^[+-]?\d+(\.\d+)?%$/.test(String(value).trim());
 }
 
-export function scopedStatesForFilter(ind: Indicator, filter: FilterState): string[] | null {
-  const cov = coverageStates(ind);
-  let list = cov;
-  let any = false;
-  if (filter.zone) {
-    list = list.filter((st) => ZONE_OF_STATE[st] === filter.zone);
-    any = true;
-  }
-  if (filter.donor) {
-    list = list.filter((st) => (STATE_DONORS[st] || []).includes(filter.donor));
-    any = true;
-  }
-  if (!any) return null;
-  return list;
+export function scopeLabel(filter: FilterState): string {
+  const parts: string[] = [];
+  // Tightest active geography leads the chip.
+  const geo = filter.facility || filter.ward || filter.lga || filter.state || filter.zone;
+  if (geo) parts.push(geo);
+  if (filter.donor) parts.push(filter.donor);
+  if (filter.facilityType) parts.push(filter.facilityType);
+  const period = [filter.month, filter.year].filter(Boolean).join(' ');
+  if (period) parts.push(period);
+  return parts.join(' · ');
 }
 
-export function scopeLabel(filter: FilterState): string {
-  if (filter.state) return filter.state;
-  const parts: string[] = [];
-  if (filter.zone) parts.push(filter.zone);
-  if (filter.donor) parts.push(filter.donor);
-  return parts.join(' · ');
+/** Filters the indicator/KPI cards can be scoped by (all compound with AND). */
+function cardScopeActive(filter: FilterState): boolean {
+  return !!(
+    filter.facility ||
+    filter.lga ||
+    filter.state ||
+    filter.zone ||
+    filter.donor ||
+    filter.facilityType ||
+    filter.year ||
+    filter.month
+  );
 }
 
 export interface EffectiveValue {
   value?: string;
   pct?: number;
+  n?: number;
+  smallN?: boolean;
   outOfScope: boolean;
 }
 
-/** Returns null when no location filter is active (use the card's national value). */
-export function effectiveIndicatorValue(
-  ind: Indicator,
-  filter: FilterState
-): EffectiveValue | null {
-  if (ind.pct <= 0) return null;
-  const cov = coverageStates(ind);
-  if (filter.state) {
-    if (!cov.includes(filter.state)) return { outOfScope: true };
-    const p = pseudo(filter.state + '|' + ind.pct);
-    let v = ind.pct + (p - 0.5) * Math.max(18, ind.pct * 0.5);
-    v = +Math.max(2, Math.min(98, v)).toFixed(1);
-    return { value: v + '%', pct: v, outOfScope: false };
-  }
-  const states = scopedStatesForFilter(ind, filter);
-  if (states === null) return null;
-  if (states.length === 0) return { outOfScope: true };
-  let sum = 0;
-  states.forEach((st) => {
-    const p = pseudo(st + '|' + ind.pct);
-    sum += Math.max(2, Math.min(98, ind.pct + (p - 0.5) * Math.max(18, ind.pct * 0.5)));
-  });
-  const avg = +(sum / states.length).toFixed(1);
-  return { value: avg + '%', pct: avg, outOfScope: false };
+/**
+ * The scoped value for an indicator card under the active filter, or null when no
+ * card-level scope is active (→ show the national value). When a scope IS active
+ * but the snapshot has no measurement for it, returns `{ outOfScope: true }`.
+ */
+export function effectiveIndicatorValue(ind: Indicator, filter: FilterState): EffectiveValue | null {
+  if (ind.pct <= 0) return null; // national is already a data gap
+  if (!cardScopeActive(filter)) return null; // no scope → use the card's national value
+
+  // Compound scope: ONE figure over the intersection of every active filter,
+  // computed by re-running the shared indicator engine on the AND-filtered facts.
+  const scoped = scopedMeasurements(filter);
+  if (!scoped) return null; // facts not loaded yet → fall back to the national value
+  const m = scoped[ind.name];
+  if (!m) return { outOfScope: true };
+  return {
+    value: m.value,
+    pct: m.pct,
+    n: m.n,
+    smallN: m.n != null && m.n < SMALL_N,
+    outOfScope: false,
+  };
 }
 
 export interface EffectiveSplit4 extends Split4 {
   outOfScope: boolean;
 }
 
-/** Returns null when no location filter is active. */
+/**
+ * Facility functional-status split, scoped to the active geography/type/donor.
+ * Per the indicator workbook, MAMII is the sole source, so the split is re-tallied
+ * from the AND-filtered MAMII facts (L2/L1/Partial from MAMII, Non-functional
+ * derived). Returns null when no geo scope is active (→ the card shows its national
+ * split), or an out-of-scope marker when the scope selects no MAMII rows.
+ */
 export function effectiveSplit4(ind: Indicator, filter: FilterState): EffectiveSplit4 | null {
-  if (!filter.state && !filter.zone && !filter.donor) return null;
   if (!ind.split4) return null;
-  let states = ALL_STATES;
-  if (filter.zone) states = states.filter((st) => ZONE_OF_STATE[st] === filter.zone);
-  if (filter.donor) states = states.filter((st) => (STATE_DONORS[st] || []).includes(filter.donor));
-  if (filter.state) states = states.filter((st) => st === filter.state);
-  if (!states.length) return { l2: 0, l1: 0, partial: 0, nonfunc: 0, outOfScope: true };
-  const rows = stateSplit4Breakdown(ind.split4).filter((r) => states.includes(r.label));
-  const n = rows.length || 1;
-  const avg = { l2: 0, l1: 0, partial: 0, nonfunc: 0 };
-  rows.forEach((r) => {
-    avg.l2 += r.l2;
-    avg.l1 += r.l1;
-    avg.partial += r.partial;
-    avg.nonfunc += r.nonfunc;
-  });
-  (Object.keys(avg) as (keyof Split4)[]).forEach((k) => {
-    avg[k] = +(avg[k] / n).toFixed(1);
-  });
-  return { ...avg, outOfScope: false };
+  return functionalStatusScopedSplit(filter);
 }
 
 /* ------------------------------------------------------------------ *
- * KPI scoping.
+ * KPI scoping. Each KPI card carries the `indicator` it summarises, so under an
+ * active filter the strip rescopes through the SAME compound engine the cards use
+ * (no fabrication — a scope with no data shows "—").
  * ------------------------------------------------------------------ */
-export function scaleValueString(str: string, factor: number): string {
-  return str.replace(/[\d][\d,.]*/, (m) => {
-    const decimals = (m.split('.')[1] || '').length;
-    const num = parseFloat(m.replace(/,/g, ''));
-    if (isNaN(num)) return m;
-    const scaled = Math.max(0, num * factor);
-    return scaled.toLocaleString('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  });
-}
-
 export interface ScopedKpi {
   value: string;
   pct: number;
@@ -315,55 +204,21 @@ export interface ScopedKpi {
 }
 
 export function scopedKpiValue(
-  k: { value: string; pct: number; label: string },
+  card: Pick<KpiCard, 'value' | 'pct' | 'label' | 'indicator'>,
   filter: FilterState
 ): ScopedKpi {
-  if (!filter.state && !filter.zone && !filter.donor)
-    return { value: k.value, pct: k.pct, scoped: false };
-  let states = ALL_STATES;
-  if (filter.zone) states = states.filter((st) => ZONE_OF_STATE[st] === filter.zone);
-  if (filter.donor) states = states.filter((st) => (STATE_DONORS[st] || []).includes(filter.donor));
-  if (filter.state) states = states.filter((st) => st === filter.state);
-  if (!states.length) return { value: k.value, pct: k.pct, scoped: false };
-  let sum = 0;
-  states.forEach((st) => {
-    const p = pseudo(st + '|kpi|' + k.label);
-    sum += Math.max(2, Math.min(98, k.pct + (p - 0.5) * Math.max(14, k.pct * 0.4)));
-  });
-  const avgPct = +(sum / states.length).toFixed(1);
-  const factor = k.pct ? avgPct / k.pct : 1;
-  return { value: scaleValueString(k.value, factor), pct: avgPct, scoped: true };
+  const national: ScopedKpi = { value: card.value, pct: card.pct, scoped: false };
+  if (!card.indicator || !cardScopeActive(filter)) return national;
+  const scoped = scopedMeasurements(filter);
+  if (!scoped) return national; // facts not loaded yet
+  const m = scoped[card.indicator];
+  if (!m) return { value: '—', pct: 0, scoped: true }; // no data for this scope
+  return { value: m.value, pct: m.pct, scoped: true };
 }
 
 /* ------------------------------------------------------------------ *
- * Trend granularity transforms.
+ * Trend granularity transforms (roll native monthly series up to quarter/year).
  * ------------------------------------------------------------------ */
-export function quarterlyToMonthly(qArr: (number | null)[], seed: string): (number | null)[] {
-  const out: (number | null)[] = [];
-  for (let i = 0; i < 14; i++) {
-    const cur = qArr[i];
-    if (cur == null) {
-      out.push(null, null, null);
-      continue;
-    }
-    const rawNext = i < 13 ? qArr[i + 1] : cur + (cur - (qArr[i - 1] ?? cur));
-    const next = rawNext == null ? cur : rawNext; // flat into a gap, never NaN
-    for (let m = 0; m < 3; m++) {
-      const t = m / 3;
-      const v = cur + (next - cur) * t;
-      const jitter =
-        (pseudo(seed + '|' + i + '|' + m) - 0.5) * Math.abs(next - cur || cur * 0.04 || 1) * 0.5;
-      out.push(+(v + jitter).toFixed(2));
-    }
-  }
-  return out;
-}
-
-/**
- * Roll a native MONTHLY series (42 points, Jan 2023 → Jun 2026) up to the 14
- * quarterly buckets. `agg` is 'sum' for count series and 'mean' for rates/percents.
- * Empty buckets stay null (honest gaps).
- */
 export function monthlyToQuarterly(
   mArr: (number | null)[],
   agg: 'sum' | 'mean' = 'mean'
@@ -381,7 +236,6 @@ export function monthlyToQuarterly(
   return out;
 }
 
-/** Roll a native monthly series up to the 4 yearly buckets (2023, 2024, 2025, 2026-YTD). */
 export function monthlyToYearly(
   mArr: (number | null)[],
   agg: 'sum' | 'mean' = 'mean'
@@ -395,27 +249,12 @@ export function monthlyToYearly(
   });
 }
 
-export function quarterlyToYearly(qArr: (number | null)[]): (number | null)[] {
-  const groups = [qArr.slice(0, 4), qArr.slice(4, 8), qArr.slice(8, 12), qArr.slice(12, 14)];
-  return groups.map((g) => {
-    const finite = g.filter((v): v is number => typeof v === 'number' && isFinite(v));
-    if (!finite.length) return null;
-    return +(finite.reduce((a, b) => a + b, 0) / finite.length).toFixed(2);
-  });
-}
-
 /* ------------------------------------------------------------------ *
- * Administrative hierarchy helpers + facility dataset builder.
+ * Administrative hierarchy helpers (real reference data).
  * ------------------------------------------------------------------ */
-const WARD_NUMS = ['Ward 1', 'Ward 2', 'Ward 3', 'Ward 4', 'Ward 5'];
-
 /** Real LGAs for a state (see geo/lgas.ts). Falls back to the state name. */
 export function lgasForState(state: string): string[] {
   return LGAS_BY_STATE[state] ?? [state];
-}
-
-export function wardsForLga(lga: string): string[] {
-  return WARD_NUMS.slice(0, 4).map((w) => `${lga} - ${w}`);
 }
 
 export const quarterLabels: string[] = (() => {

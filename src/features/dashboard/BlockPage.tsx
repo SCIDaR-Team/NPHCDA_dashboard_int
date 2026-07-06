@@ -7,7 +7,7 @@ import { ExportMenu } from '@/components/dashboard/ExportMenu';
 import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
-import { BLOCK_DESCRIPTIONS } from '@/data/mock/indicators';
+import { BLOCK_DESCRIPTIONS } from '@/data/catalogue';
 import { effectiveIndicatorValue } from '@/data/calculations';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { BlockName, Indicator } from '@/data/types';
@@ -16,6 +16,7 @@ export function BlockPage({ block }: { block: BlockName }) {
   const ds = getDataSource();
   const { data: blocks, loading, error, reload } = useAsync(() => ds.getBlocks());
   const { data: sections } = useAsync(() => ds.getBlockSections());
+  const { data: trends } = useAsync(() => ds.getTrendSeries());
   const filter = useFilterStore(pickFilter);
   const [modalInd, setModalInd] = useState<Indicator | null>(null);
 
@@ -73,7 +74,13 @@ export function BlockPage({ block }: { block: BlockName }) {
             <SectionBlock key={title} title={decodeHtml(title)} tone={isGap ? 'warning' : 'brand'}>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {cards.map((ind) => (
-                  <IndicatorCard key={ind.name} indicator={ind} onOpen={setModalInd} />
+                  <IndicatorCard
+                    key={ind.name}
+                    indicator={ind}
+                    onOpen={setModalInd}
+                    siblings={indByName}
+                    trends={trends}
+                  />
                 ))}
               </div>
             </SectionBlock>

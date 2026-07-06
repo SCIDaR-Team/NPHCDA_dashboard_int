@@ -8,7 +8,7 @@ import { ExportMenu } from '@/components/dashboard/ExportMenu';
 import { useChartTheme } from '@/components/charts/chartTheme';
 import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
-import { trendColors, defaultsOn } from '@/data/mock/trends';
+import { trendColors, defaultsOn } from '@/data/config';
 import {
   monthlyToQuarterly,
   monthlyToYearly,

@@ -5,7 +5,7 @@
  */
 import { fetchAllOData } from '../lib/odata.mjs';
 import { dig, num, numPos, toQuarter, toMonthLabel } from '../lib/util.mjs';
-import { normState, titleCase } from '../lib/states.mjs';
+import { normState, titleCase, cleanName, zoneForState, donorsForState } from '../lib/states.mjs';
 
 const SERVICE_URL =
   'https://odk.mine.bz/v1/projects/381/forms/hsdf_consortium_facility_monitoring_tool_v1.svc';
@@ -52,10 +52,14 @@ function flatten(row) {
   // Cold chain (#26): functional = `yes` only (strict). `yes_no_therm` (no thermometer)
   // and `yes_faulty` are NOT counted as functional; `no` = absent.
   const cceRaw = String(dig(row, 'drugs_supply.equipment.cce')).trim().toLowerCase();
+  const state = normState(dig(row, 'Facility_demographics.state'));
   return {
-    state: normState(dig(row, 'Facility_demographics.state')),
+    state,
+    // Derived filter dimensions (deterministic from state; see lib/states.mjs).
+    zone: zoneForState(state),
+    donor: donorsForState(state),
     lga: titleCase(dig(row, 'Facility_demographics.lga_selected')),
-    facility: titleCase(dig(row, 'Facility_demographics.facility_name')) || 'Unknown facility',
+    facility: cleanName(titleCase(dig(row, 'Facility_demographics.facility_name'))) || 'Unknown facility',
     designation: dig(row, 'Facility_demographics.facility_designation_auto') || null,
     quarter: reportingPeriod(row).quarter,
     month: reportingPeriod(row).month,

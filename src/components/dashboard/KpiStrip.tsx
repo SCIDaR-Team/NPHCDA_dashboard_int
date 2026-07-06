@@ -38,10 +38,7 @@ export function KpiStrip({ groups, loading }: { groups: KpiGroup[] | null; loadi
           </p>
           <div className="grid gap-4">
             {grp.cards.map((card) => {
-              const scoped = scopedKpiValue(
-                { value: card.value, pct: card.pct, label: card.label },
-                filter
-              );
+              const scoped = scopedKpiValue(card, filter);
               const ringPct = scoped.pct;
               const color = heatColor(card.ringInverse ? 100 - ringPct : ringPct);
               const up = card.dir === 'up';

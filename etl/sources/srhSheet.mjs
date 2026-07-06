@@ -9,7 +9,7 @@
  * enrichment. Nothing else here is mapped to an indicator.
  */
 import Papa from 'papaparse';
-import { normState, titleCase } from '../lib/states.mjs';
+import { normState, titleCase, cleanName, zoneForState, donorsForState } from '../lib/states.mjs';
 import { num } from '../lib/util.mjs';
 
 const CSV_URL =
@@ -43,11 +43,15 @@ function flatten(row) {
   const rawSba = (isCemonc ? row[COL.sbaCemonc] : row[COL.sbaBemonc]) ?? '';
   const sbaAssessed = String(rawSba).trim() !== '';
   const sba = num(rawSba);
+  const state = normState(row.STATE);
 
   return {
-    state: normState(row.STATE),
+    state,
+    // Derived filter dimensions (deterministic from state; see lib/states.mjs).
+    zone: zoneForState(state),
+    donor: donorsForState(state),
     lga: titleCase(row.LGA),
-    facility: row.facility_name || 'Unknown facility',
+    facility: cleanName(row.facility_name) || 'Unknown facility',
     facilityType: row.facility_type || null,
 
     // SBA availability (drives "Proportion of facilities with a minimum of 4 SBAs").

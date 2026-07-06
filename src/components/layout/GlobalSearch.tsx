@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Search, CornerDownLeft, MapPin, BarChart3, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { blocks } from '@/data/mock/indicators';
+import { blocks } from '@/data/catalogue';
 import { ALL_STATES } from '@/data/geo/states';
 import { NAV_ITEMS, BLOCK_ROUTES } from '@/app/navigation';
 import { useFilterStore } from '@/store/filterStore';

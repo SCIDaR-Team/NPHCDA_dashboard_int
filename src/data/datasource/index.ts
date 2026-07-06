@@ -1,20 +1,18 @@
 import type { DataSource } from './types';
-import { MockDataSource } from './MockDataSource';
 import { ApiDataSource } from './ApiDataSource';
 import { SnapshotDataSource } from './SnapshotDataSource';
 
 export type { DataSource } from './types';
-export { MockDataSource } from './MockDataSource';
 export { ApiDataSource } from './ApiDataSource';
 export { SnapshotDataSource } from './SnapshotDataSource';
 
 /**
  * Single place that decides which data source the app uses.
  *
- * Controlled by the `VITE_DATA_SOURCE` env var:
- *   - "mock" (default) → preserved illustrative figures
- *   - "snapshot"       → real data via the ETL snapshot (npm run data:refresh)
- *   - "api"            → live backend via ApiDataSource
+ * The app is REAL-DATA-ONLY: the default (and only shipped) source is the ETL
+ * snapshot (`npm run data:refresh` → public/data-snapshot/measurements.json).
+ * Set `VITE_DATA_SOURCE=api` to point at a live backend via ApiDataSource.
+ * There is no mock/illustrative source.
  *
  * Components consume this through the `useDataSource()` hook / DataProvider,
  * so swapping data sources never touches UI code.
@@ -23,13 +21,8 @@ let instance: DataSource | null = null;
 
 export function getDataSource(): DataSource {
   if (instance) return instance;
-  const mode = import.meta.env.VITE_DATA_SOURCE ?? 'mock';
-  instance =
-    mode === 'api'
-      ? new ApiDataSource()
-      : mode === 'snapshot'
-        ? new SnapshotDataSource()
-        : new MockDataSource();
+  const mode = import.meta.env.VITE_DATA_SOURCE ?? 'snapshot';
+  instance = mode === 'api' ? new ApiDataSource() : new SnapshotDataSource();
   return instance;
 }
 

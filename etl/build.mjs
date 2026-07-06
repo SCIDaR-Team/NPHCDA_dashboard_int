@@ -14,6 +14,8 @@ import { loadEnv, required } from './lib/env.mjs';
 import { loadSrhOdk } from './sources/srhOdk.mjs';
 import { loadSfmOdk } from './sources/sfmOdk.mjs';
 import { loadSrhSheet } from './sources/srhSheet.mjs';
+import { loadMamii } from './sources/mamii.mjs';
+import { loadPfmo } from './sources/pfmo.mjs';
 import { transform } from './transform.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -42,22 +44,30 @@ async function main() {
     loadSfmOdk(`${required('SFM_ODK_USER')}:${required('SFM_ODK_PASS')}`)
   );
   const sheet = await safe('SRH Google Sheet', () => loadSrhSheet());
+  const mamii = await safe('MAMII (static dataset)', () => loadMamii());
+  const pfmo = await safe('PFMO', () => loadPfmo(required('PFMO_API_KEY')));
 
-  const { indicators, kpis, trends, stateScores, facilities } = transform({ srh, sfm, sheet });
+  const { indicators, facts, kpis, trends, stateScores, facilities } = transform({ srh, sfm, sheet, mamii, pfmo });
 
   const quarters = [...new Set([...(srh.quarters || []), ...(sfm.quarters || [])])].sort();
   const snapshot = {
     generatedAt: new Date().toISOString(),
     period: { quarters, from: quarters[0] ?? null, to: quarters[quarters.length - 1] ?? null },
-    sources: [srh, sfm, sheet].map((s) => ({
+    sources: [srh, sfm, sheet, mamii, pfmo].map((s) => ({
       name: s.name,
       ok: s.ok,
       error: s.error ?? null,
       rowsFetched: s.rowsFetched,
       facilities: s.facilities,
     })),
-    counts: { indicators: Object.keys(indicators).length, facilities: facilities.length, states: Object.keys(stateScores).length },
+    counts: {
+      indicators: Object.keys(indicators).length,
+      facilities: facilities.length,
+      states: Object.keys(stateScores).length,
+      facts: facts.srh.length + facts.sfm.length + facts.sheet.length + facts.mamii.length + facts.pfmo.length,
+    },
     indicators,
+    facts,
     kpis,
     trends,
     stateScores,

@@ -20,12 +20,16 @@ export interface NavItem {
   description: string;
 }
 
-/** The Home hub — shown in the sidebar but excluded from the "sections" grid on Home itself. */
+/**
+ * The standalone Home entry page. It lives at the app root (outside the
+ * dashboard shell) and is intentionally NOT listed in the sidebar navigation;
+ * the shell's logo links back to it.
+ */
 export const HOME_ITEM: NavItem = {
-  to: '/app/home',
+  to: '/',
   label: 'Home',
   icon: Home,
-  description: 'Your central hub: quick navigation, key metrics and linked dashboards.',
+  description: 'The platform entry point: overview, key metrics and dashboard sections.',
 };
 
 /** Single source of truth for navigation + routing of dashboard pages. */

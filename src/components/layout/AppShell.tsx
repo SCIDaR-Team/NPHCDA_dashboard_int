@@ -5,8 +5,8 @@ import { Menu, SlidersHorizontal, Search, X } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { FilterDrawer } from './FilterDrawer';
 import { GlobalSearch } from './GlobalSearch';
-import { ThemeToggle, NotificationsMenu, ProfileMenu } from './TopbarMenus';
-import { NAV_ITEMS, HOME_ITEM } from '@/app/navigation';
+import { ThemeToggle } from './TopbarMenus';
+import { NAV_ITEMS } from '@/app/navigation';
 import { useFilterStore } from '@/store/filterStore';
 import { Badge } from '@/components/ui';
 import { scopeLabel } from '@/data/calculations';
@@ -19,7 +19,7 @@ export function AppShell() {
   const filter = useFilterStore();
   const activeCount = filter.activeCount();
 
-  const current = [HOME_ITEM, ...NAV_ITEMS].find((n) => location.pathname.startsWith(n.to));
+  const current = NAV_ITEMS.find((n) => location.pathname.startsWith(n.to));
 
   // Close mobile nav on route change.
   useEffect(() => setMobileNav(false), [location.pathname]);
@@ -123,9 +123,6 @@ export function AppShell() {
               <kbd className="hidden rounded border border-border px-1 text-[10px] lg:inline">⌘K</kbd>
             </button>
             <ThemeToggle />
-            <NotificationsMenu />
-            <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
-            <ProfileMenu />
           </div>
         </header>
 

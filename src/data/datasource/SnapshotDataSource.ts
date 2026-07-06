@@ -9,12 +9,10 @@ import type {
   Split4,
   TrendSeries,
 } from '../types';
-import { blocks, blockSections, INDICATOR_DEFS, DEFINITIONS } from '../mock/indicators';
-import { kpiGroups } from '../mock/kpis';
-import { trendSeries } from '../mock/trends';
-import { FD_DATA } from '../mock/facilities';
-import { STATE_SCORE, STATE_DONORS } from '../geo/states';
-import { quarterlyToMonthly } from '../calculations';
+import { blocks, blockSections, INDICATOR_DEFS, DEFINITIONS } from '../catalogue';
+import { STATE_DONORS } from '../geo/states';
+import type { SnapshotFacts } from '../scopedEngine';
+import { useSnapshotStore } from '@/store/snapshotStore';
 
 /**
  * Live snapshot data source.
@@ -50,6 +48,8 @@ interface Snapshot {
   period: { from: string | null; to: string | null; quarters: string[] };
   sources: { name: string; ok: boolean; error: string | null; rowsFetched: number; facilities: number }[];
   indicators: Record<string, Measurement>;
+  /** Compact per-source fact table for compound-filter scoping (see scopedEngine). */
+  facts?: SnapshotFacts;
   kpis: KpiGroup[];
   trends: TrendSeries;
   stateScores: Record<string, number>;
@@ -66,7 +66,15 @@ export class SnapshotDataSource implements DataSource {
   private load(): Promise<Snapshot | null> {
     if (!this.snapshotPromise) {
       this.snapshotPromise = fetch(SNAPSHOT_URL)
-        .then((res) => (res.ok ? (res.json() as Promise<Snapshot>) : null))
+        .then((res) => {
+          if (!res.ok) return null;
+          return res.json() as Promise<Snapshot>;
+        })
+        .then((snap) => {
+          useSnapshotStore.getState().setFacts(snap?.facts ?? null);
+          useSnapshotStore.getState().setFacilities(snap?.facilities ?? []);
+          return snap;
+        })
         .catch(() => null);
     }
     return this.snapshotPromise;
@@ -99,32 +107,28 @@ export class SnapshotDataSource implements DataSource {
 
   async getBlocks(): Promise<Blocks> {
     const snap = await this.load();
+    // No snapshot → the neutral catalogue (every indicator an empty state). Never mock.
     return snap ? this.overlayBlocks(snap) : blocks;
   }
 
   async getKpiGroups(): Promise<KpiGroup[]> {
     const snap = await this.load();
-    return snap?.kpis?.length ? snap.kpis : kpiGroups;
+    return snap?.kpis ?? [];
   }
 
   async getTrendSeries(): Promise<TrendSeries> {
     const snap = await this.load();
-    // The ETL emits native monthly (42-pt) series. Fallback mock is quarterly, so
-    // expand it to monthly to match the app's native resolution.
-    if (snap?.trends && Object.keys(snap.trends).length) return snap.trends;
-    return Object.fromEntries(
-      Object.entries(trendSeries).map(([name, q]) => [name, quarterlyToMonthly(q, name)])
-    );
+    return snap?.trends ?? {};
   }
 
   async getFacilities(): Promise<FacilityRow[]> {
     const snap = await this.load();
-    return snap?.facilities?.length ? snap.facilities : FD_DATA;
+    return snap?.facilities ?? [];
   }
 
   async getStateScores(): Promise<Record<string, number>> {
     const snap = await this.load();
-    return snap?.stateScores && Object.keys(snap.stateScores).length ? snap.stateScores : STATE_SCORE;
+    return snap?.stateScores ?? {};
   }
 
   // Structural / reference data has no live source — served from the catalogue.

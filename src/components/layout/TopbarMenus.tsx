@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Sun, Moon, LogOut, Settings, User as UserIcon, CheckCheck, Globe } from 'lucide-react';
+import { Bell, Sun, Moon, Settings, User as UserIcon, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStore } from '@/store/themeStore';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -110,7 +110,6 @@ export function NotificationsMenu() {
 export function ProfileMenu() {
   const [open, setOpen] = useState(false);
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const ref = useOutside(() => setOpen(false));
 
@@ -157,17 +156,6 @@ export function ProfileMenu() {
             <div className="p-1.5">
               <MenuRow icon={UserIcon} label="Profile & settings" onClick={() => { navigate('/app/settings'); setOpen(false); }} />
               <MenuRow icon={Settings} label="Preferences" onClick={() => { navigate('/app/settings'); setOpen(false); }} />
-              <MenuRow icon={Globe} label="View landing page" onClick={() => { navigate('/'); setOpen(false); }} />
-              <div className="my-1 h-px bg-border-soft" />
-              <MenuRow
-                icon={LogOut}
-                label="Sign out"
-                danger
-                onClick={async () => {
-                  await logout();
-                  navigate('/login');
-                }}
-              />
             </div>
           </motion.div>
         )}

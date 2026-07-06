@@ -13,9 +13,9 @@ import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { useNotificationStore } from '@/store/notificationStore';
-import { ALL_STATES, STATE_SCORE, STATE_DONORS, ZONE_OF_STATE } from '@/data/geo/states';
+import { ALL_STATES, STATE_DONORS, ZONE_OF_STATE } from '@/data/geo/states';
 import { BLOCK_ROUTES } from '@/app/navigation';
-import { coverageStates, effectiveIndicatorValue, goodnessFor, pseudo } from '@/data/calculations';
+import { effectiveIndicatorValue, goodnessFor, stateMeasures } from '@/data/calculations';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { Indicator, BlockName, Blocks } from '@/data/types';
 
@@ -23,6 +23,7 @@ export function OverviewPage() {
   const ds = getDataSource();
   const { data: kpiGroups, loading: kpiLoading } = useAsync(() => ds.getKpiGroups());
   const { data: blocks, loading: blocksLoading, error, reload } = useAsync(() => ds.getBlocks());
+  const { data: stateScores } = useAsync(() => ds.getStateScores());
 
   const filter = useFilterStore(pickFilter);
   const setFilter = useFilterStore((s) => s.set);
@@ -39,25 +40,26 @@ export function OverviewPage() {
     return m;
   }, [blocks]);
 
-  // Map fill values: composite score, or the averaged goodness of selected indicators.
+  // Map fill values: real composite state readiness score, or the averaged real
+  // per-state goodness of the selected indicators (from the ETL disaggregation).
   const mapValues = useMemo<Record<string, number>>(() => {
-    if (selection.names.size === 0 || !blocks) return STATE_SCORE;
+    const base = stateScores ?? {};
+    if (selection.names.size === 0 || !blocks) return base;
     const inds = [...selection.names].map((n) => allByName[n]).filter(Boolean);
     const out: Record<string, number> = {};
     ALL_STATES.forEach((st) => {
       let sum = 0;
       let cnt = 0;
       inds.forEach((ind) => {
-        if (!coverageStates(ind).includes(st)) return;
-        const p = pseudo(st + '|' + ind.pct);
-        const v = Math.max(2, Math.min(98, ind.pct + (p - 0.5) * Math.max(18, ind.pct * 0.5)));
-        sum += ind.inverse ? 100 - v : v;
+        const m = stateMeasures(ind.name)[st];
+        if (!m) return; // no real measurement for this indicator in this state
+        sum += ind.inverse ? 100 - m.pct : m.pct;
         cnt++;
       });
-      out[st] = cnt ? +(sum / cnt).toFixed(1) : (STATE_SCORE[st] ?? 0);
+      out[st] = cnt ? +(sum / cnt).toFixed(1) : (base[st] ?? 0);
     });
     return out;
-  }, [selection, blocks, allByName]);
+  }, [selection, blocks, allByName, stateScores]);
 
   const highlight = useMemo<string[] | null>(() => {
     if (filter.state) return [filter.state];

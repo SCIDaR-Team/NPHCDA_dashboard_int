@@ -24,8 +24,8 @@ export function CompositeBreakdownChart({ items }: { items: [string, number][] }
         legend: true,
         labelMaxChars,
         series: [
-          { name: 'Available', color: '#10C46E', data: items.map((it) => 100 - it[1]) },
-          { name: 'Not available', color: '#F2536D', data: items.map((it) => it[1]) },
+          { name: 'Available', color: '#22C55E', data: items.map((it) => 100 - it[1]) },
+          { name: 'Not available', color: '#EF4444', data: items.map((it) => it[1]) },
         ],
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,22 +1,26 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Layers } from 'lucide-react';
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Layers, RotateCcw } from 'lucide-react';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, Badge, Input, Select, EmptyState } from '@/components/ui';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
-import { FD_DATA } from '@/data/mock/facilities';
-import { FD_COLUMNS } from '@/data/mock/facility-columns';
-import { ALL_STATES, ZONE_OF_STATE, STATE_DONORS } from '@/data/geo/states';
-import { pseudo } from '@/data/calculations';
+import { getDataSource } from '@/data/datasource';
+import { useAsync } from '@/hooks/useAsync';
+import { FD_COLUMNS, FD_NO_DATA_COLUMNS } from '@/data/config';
+import { ZONE_OF_STATE, STATE_DONORS } from '@/data/geo/states';
 import { cn } from '@/lib/cn';
 import type { FacilityRow, FilterState } from '@/data/types';
 
-/** Global-scope match (zone/donor/ward/facility from the dashboard filters). */
+/** Global-scope match (zone / donor / ward / facility type / facility from the dashboard filters). */
 function globalMatch(row: FacilityRow, f: FilterState): boolean {
-  if (f.zone && ZONE_OF_STATE[row.state] !== f.zone) return false;
+  // Prefer the dimensions the ETL stamped onto the row; fall back to deriving from state.
+  const zone = row.zone ?? ZONE_OF_STATE[row.state];
+  const donors = row.donor ?? STATE_DONORS[row.state] ?? [];
+  if (f.zone && zone !== f.zone) return false;
   if (f.ward && row.ward !== f.ward) return false;
+  if (f.facilityType && row.type !== f.facilityType) return false;
   if (f.facility && row.facility !== f.facility) return false;
-  if (f.donor && !(STATE_DONORS[row.state] || []).includes(f.donor)) return false;
+  if (f.donor && !donors.includes(f.donor)) return false;
   return true;
 }
 
@@ -26,13 +30,11 @@ function statusTone(status: string) {
   return 'poor' as const;
 }
 
-function numericValue(row: FacilityRow, key: string, period: string): number {
-  const raw = (row as any)[key] as number;
-  if (period && key !== 'maternalDeaths') {
-    const delta = (pseudo(row.facility + row.lga + key + period) - 0.5) * 14;
-    return Math.max(2, Math.min(98, Math.round(raw + delta)));
-  }
-  return raw;
+/** Real numeric value for a column, or null when the column has no live source. */
+function numericValue(row: FacilityRow, key: string): number | null {
+  if (FD_NO_DATA_COLUMNS.has(key)) return null;
+  const raw = (row as any)[key];
+  return typeof raw === 'number' ? raw : null;
 }
 
 type SortKey = 'state' | 'lga' | 'facility' | string;
@@ -40,6 +42,9 @@ type SortDir = 'asc' | 'desc';
 
 export function FacilityDeepdivePage() {
   const globalFilter = useFilterStore(pickFilter);
+  const ds = getDataSource();
+  const { data: facilities } = useAsync(() => ds.getFacilities());
+  const FAC = useMemo(() => facilities ?? [], [facilities]);
 
   // Local-only controls (independent of the global dashboard filters).
   const [localState, setLocalState] = useState('');
@@ -53,13 +58,15 @@ export function FacilityDeepdivePage() {
   const effectiveState = localState || globalFilter.state;
   const effectiveSearch = localSearch || globalFilter.search;
 
+  const stateOptions = useMemo(() => Array.from(new Set(FAC.map((r) => r.state))).sort(), [FAC]);
+
   const lgaOptions = useMemo(() => {
-    const src = FD_DATA.filter((r) => (effectiveState ? r.state === effectiveState : true));
+    const src = FAC.filter((r) => (effectiveState ? r.state === effectiveState : true));
     return Array.from(new Set(src.map((r) => r.lga))).sort();
-  }, [effectiveState]);
+  }, [FAC, effectiveState]);
 
   const rows = useMemo(() => {
-    let out = FD_DATA.filter((r) => globalMatch(r, globalFilter));
+    let out = FAC.filter((r) => globalMatch(r, globalFilter));
     if (effectiveState) out = out.filter((r) => r.state === effectiveState);
     else if (globalFilter.lga) out = out.filter((r) => r.lga === globalFilter.lga);
     if (localLga) out = out.filter((r) => r.lga === localLga);
@@ -78,7 +85,7 @@ export function FacilityDeepdivePage() {
       const get = (r: FacilityRow): string | number => {
         if (sort.key === 'state' || sort.key === 'lga' || sort.key === 'facility') return r[sort.key];
         if (sort.key === 'type' || sort.key === 'status') return (r as any)[sort.key];
-        return numericValue(r, sort.key, globalFilter.period);
+        return numericValue(r, sort.key) ?? -1;
       };
       const av = get(a);
       const bv = get(b);
@@ -92,14 +99,15 @@ export function FacilityDeepdivePage() {
       );
     };
     return [...out].sort(cmp);
-  }, [globalFilter, effectiveState, localLga, effectiveSearch, sort]);
+  }, [FAC, globalFilter, effectiveState, localLga, effectiveSearch, sort]);
 
   const kpis = useMemo(() => {
     const total = rows.length;
-    const tracerHigh = rows.filter((r) => r.tracer >= 70).length;
-    const avgSat = total ? Math.round(rows.reduce((a, r) => a + r.satisfaction, 0) / total) : 0;
+    const cemonc = rows.filter((r) => r.type === 'CEmONC').length;
+    const bemonc = rows.filter((r) => r.type === 'BEmONC').length;
+    const l2 = rows.filter((r) => r.status === 'L2').length;
     const states = new Set(rows.map((r) => r.state)).size;
-    return { total, tracerHigh, avgSat, states };
+    return { total, cemonc, bemonc, l2, states };
   }, [rows]);
 
   const cols = FD_COLUMNS.filter((c) => c.always || activeCols.has(c.key));
@@ -107,16 +115,21 @@ export function FacilityDeepdivePage() {
   const exportRows = useMemo(
     () =>
       rows.map((r) => {
-        const base: Record<string, unknown> = { State: r.state, LGA: r.lga, Facility: r.facility };
+        const base: Record<string, unknown> = {
+          State: r.state,
+          Zone: r.zone ?? ZONE_OF_STATE[r.state] ?? '',
+          LGA: r.lga,
+          Facility: r.facility,
+        };
         cols.forEach((c) => {
           base[c.label] =
             c.key === 'type' || c.key === 'status'
               ? (r as any)[c.key]
-              : numericValue(r, c.key, globalFilter.period) + (c.key === 'maternalDeaths' ? '' : '%');
+              : numericValue(r, c.key) ?? 'No data';
         });
         return base;
       }),
-    [rows, cols, globalFilter.period]
+    [rows, cols]
   );
 
   const toggleCol = (key: string) =>
@@ -157,18 +170,27 @@ export function FacilityDeepdivePage() {
     <div>
       <PageHeader
         title="Facility Deepdive"
-        subtitle="State → LGA → Facility matrix. This table has its own local State, LGA and search controls, layered on top of the dashboard scope."
+        subtitle="State → LGA → Facility matrix, from the live facility register. This table has its own local State, LGA and search controls, layered on top of the dashboard scope."
         actions={<ExportMenu filename="nphcda-facilities" rows={exportRows} />}
       />
 
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiTile label="Assessed facilities" value={kpis.total} sub={`Across ${kpis.states} state(s)`} />
         <KpiTile
-          label="Tracer commodities ≥70%"
-          value={kpis.tracerHigh}
-          sub={`${kpis.total ? Math.round((kpis.tracerHigh / kpis.total) * 100) : 0}% of assessed facilities`}
+          label="CEmONC facilities"
+          value={kpis.cemonc}
+          sub={`${kpis.total ? Math.round((kpis.cemonc / kpis.total) * 100) : 0}% of assessed`}
         />
-        <KpiTile label="Avg. patient satisfaction" value={`${kpis.avgSat}%`} sub="Across assessed facilities" />
+        <KpiTile
+          label="BEmONC facilities"
+          value={kpis.bemonc}
+          sub={`${kpis.total ? Math.round((kpis.bemonc / kpis.total) * 100) : 0}% of assessed`}
+        />
+        <KpiTile
+          label="L2-functional facilities"
+          value={kpis.l2}
+          sub={`${kpis.total ? Math.round((kpis.l2 / kpis.total) * 100) : 0}% of assessed`}
+        />
         <KpiTile label="States represented" value={kpis.states} sub="In current view" />
       </div>
 
@@ -184,7 +206,7 @@ export function FacilityDeepdivePage() {
                 setLocalState(e.target.value);
                 setLocalLga('');
               }}
-              options={[{ value: '', label: globalFilter.state ? `Dashboard: ${globalFilter.state}` : 'All states' }, ...ALL_STATES.slice().sort().map((s) => ({ value: s, label: s }))]}
+              options={[{ value: '', label: globalFilter.state ? `Dashboard: ${globalFilter.state}` : 'All states' }, ...stateOptions.map((s) => ({ value: s, label: s }))]}
             />
           </div>
           <div className="w-44">
@@ -215,6 +237,17 @@ export function FacilityDeepdivePage() {
             )}
           >
             <Layers size={15} /> Group by state
+          </button>
+          <button
+            onClick={() => {
+              setLocalState('');
+              setLocalLga('');
+              setLocalSearch('');
+            }}
+            disabled={!localState && !localLga && !localSearch}
+            className="flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-semibold text-muted transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <RotateCcw size={15} /> Reset filters
           </button>
         </div>
 
@@ -271,19 +304,22 @@ export function FacilityDeepdivePage() {
                         <td className="px-3 py-2 text-muted">{r.state}</td>
                         <td className="px-3 py-2 text-text-soft">{r.lga}</td>
                         <td className="px-3 py-2 font-medium text-text">{r.facility}</td>
-                        {cols.map((c) => (
-                          <td key={c.key} className={cn('px-3 py-2', c.key !== 'type' && c.key !== 'status' && 'text-right')}>
-                            {c.key === 'type' ? (
-                              <Badge tone={r.type === 'CEmONC' ? 'info' : 'neutral'}>{r.type}</Badge>
-                            ) : c.key === 'status' ? (
-                              <Badge tone={statusTone(r.status)}>{r.status}</Badge>
-                            ) : c.key === 'maternalDeaths' ? (
-                              <span className="text-text-soft">{r.maternalDeaths}</span>
-                            ) : (
-                              <span className="text-text-soft">{numericValue(r, c.key, globalFilter.period)}%</span>
-                            )}
-                          </td>
-                        ))}
+                        {cols.map((c) => {
+                          const num = numericValue(r, c.key);
+                          return (
+                            <td key={c.key} className={cn('px-3 py-2', c.key !== 'type' && c.key !== 'status' && 'text-right')}>
+                              {c.key === 'type' ? (
+                                <Badge tone={r.type === 'CEmONC' ? 'info' : 'neutral'}>{r.type}</Badge>
+                              ) : c.key === 'status' ? (
+                                <Badge tone={statusTone(r.status)}>{r.status}</Badge>
+                              ) : num === null ? (
+                                <span className="text-[11px] italic text-muted">No data</span>
+                              ) : (
+                                <span className="text-text-soft">{num.toLocaleString('en-US')}</span>
+                              )}
+                            </td>
+                          );
+                        })}
                       </tr>
                     </Fragment>
                   );

@@ -98,6 +98,8 @@ export interface HBarParams {
   legend?: boolean;
   /** Tooltip value formatter; default appends "%". */
   valueFormatter?: (v: number) => string;
+  /** Optional formatter for the value-axis tick labels (e.g. compact ₦/counts). */
+  axisValueFormatter?: (v: number) => string;
 }
 
 /**
@@ -117,7 +119,10 @@ export function horizontalBarOption(params: HBarParams): EChartsOption {
     labelMaxChars = 22,
     legend = false,
     valueFormatter = (v) => `${v}%`,
+    axisValueFormatter,
   } = params;
+
+  const legendConfig = legend ? { ...baseLegend(theme) } : undefined;
 
   return {
     grid: {
@@ -127,7 +132,8 @@ export function horizontalBarOption(params: HBarParams): EChartsOption {
       bottom: 6,
       containLabel: true, // <- dynamic left margin sized to the (wrapped) labels
     },
-    legend: legend ? baseLegend(theme) : undefined,
+    legend: legendConfig,
+    color: series.map((s) => s.color ?? '#888'),
     tooltip: {
       ...baseTooltip(theme),
       trigger: 'axis',
@@ -137,7 +143,12 @@ export function horizontalBarOption(params: HBarParams): EChartsOption {
     xAxis: {
       type: 'value',
       max,
-      axisLabel: { color: theme.muted, fontFamily: CHART_FONT, fontSize: CHART_TYPE.axisLabel },
+      axisLabel: {
+        color: theme.muted,
+        fontFamily: CHART_FONT,
+        fontSize: CHART_TYPE.axisLabel,
+        ...(axisValueFormatter ? { formatter: (v: number) => axisValueFormatter(v) } : {}),
+      },
       splitLine: { lineStyle: { color: theme.grid } },
       axisLine: { show: false },
       axisTick: { show: false },

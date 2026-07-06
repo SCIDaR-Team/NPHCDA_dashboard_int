@@ -2,9 +2,9 @@
  * Domain model for the NPHCDA PHC Readiness, Stock & Service Dashboard.
  *
  * These types describe the *shape of the data the UI consumes* — independent of
- * where the data comes from. The MockDataSource and a future ApiDataSource both
- * satisfy the `DataSource` interface (see ./datasource), so wiring in real data
- * never requires touching the UI.
+ * where the data comes from. The SnapshotDataSource (real ETL data) and a future
+ * ApiDataSource both satisfy the `DataSource` interface (see ./datasource), so the
+ * UI never depends on a specific source.
  *
  * NOTE: indicator/KPI names, tiers, pct values and `inverse` flags are part of the
  * preserved business logic and must not be altered. See reference/ for the original.
@@ -63,6 +63,8 @@ export type BlockSections = Record<string, BlockSection[]>;
 /** A KPI card in the Overview strip. */
 export interface KpiCard {
   label: string;
+  /** Indicator name this card summarises — lets the strip rescope under filters. */
+  indicator?: string;
   value: string;
   delta: string;
   dir: 'up' | 'down';
@@ -93,6 +95,13 @@ export interface CompositeDefinition {
 /** A facility row in the Facility Deepdive matrix. */
 export interface FacilityRow {
   state: string;
+  /**
+   * Derived filter dimensions, stamped by the ETL from the record's state
+   * (see etl/lib/states.mjs). Optional so mock rows — which derive them from
+   * state via the geo lookups — still satisfy the type.
+   */
+  zone?: string;
+  donor?: string[];
   lga: string;
   ward: string;
   facility: string;
@@ -142,6 +151,8 @@ export interface FilterState {
   state: string;
   lga: string;
   ward: string;
+  facilityType: string;
   facility: string;
-  period: string;
+  year: string;
+  month: string;
 }

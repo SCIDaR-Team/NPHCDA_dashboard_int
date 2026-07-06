@@ -1,7 +1,7 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Settings, Bookmark, Trash2, ChevronRight } from 'lucide-react';
+import { Bookmark, Trash2 } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
-import { NAV_ITEMS, HOME_ITEM } from '@/app/navigation';
+import { NAV_ITEMS } from '@/app/navigation';
 import { useSavedViewsStore } from '@/store/savedViewsStore';
 import { useFilterStore } from '@/store/filterStore';
 import { getDataSource } from '@/data/datasource';
@@ -26,8 +26,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           to="/"
           onClick={onNavigate}
-          aria-label="NPHCDA — go to landing page"
-          title="Go to landing page"
+          aria-label="NPHCDA — go to home"
+          title="Go to home"
           className="flex items-center rounded-lg px-2 py-1 transition-colors hover:bg-bg-elev-2"
         >
           <Logo />
@@ -35,12 +35,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        <NavLink to={HOME_ITEM.to} className={linkClass} onClick={onNavigate}>
-          <HOME_ITEM.icon size={17} className="flex-shrink-0" />
-          <span className="flex-1">{HOME_ITEM.label}</span>
-        </NavLink>
-
-        <p className="px-3 pb-1.5 pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-2">
+        <p className="px-3 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-2">
           Dashboard
         </p>
         {NAV_ITEMS.map((item) => (
@@ -82,12 +77,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="border-t border-border-soft p-3">
-        <NavLink to="/app/settings" className={linkClass} onClick={onNavigate}>
-          <Settings size={17} />
-          <span className="flex-1">Settings</span>
-          <ChevronRight size={15} className="text-muted" />
-        </NavLink>
-        <div className="mt-3 flex items-center gap-2 rounded-lg bg-bg-elev-2 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-lg bg-bg-elev-2 px-3 py-2">
           <span
             className={cn(
               'h-2 w-2 rounded-full',

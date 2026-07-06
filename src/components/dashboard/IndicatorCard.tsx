@@ -1,7 +1,7 @@
 import { Info, ChevronRight, Inbox, EyeOff } from 'lucide-react';
 import { Card, Badge, Tooltip } from '@/components/ui';
 import { RingProgress } from '@/components/charts/RingProgress';
-import { CompositeBreakdownChart } from '@/components/charts/CompositeBreakdownChart';
+import { IndicatorViz, vizFor, isWideViz } from '@/components/dashboard/indicatorViz';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import {
   effectiveIndicatorValue,
@@ -11,12 +11,15 @@ import {
   statusFor,
   looksLikePercent,
 } from '@/data/calculations';
-import { DEFINITIONS, TIER_LABELS } from '@/data/mock/indicators';
+import { DEFINITIONS, TIER_LABELS } from '@/data/catalogue';
 import { cleanName, decodeHtml } from '@/lib/format';
-import type { Indicator } from '@/data/types';
+import type { Indicator, TrendSeries } from '@/data/types';
 
 const tierTone: Record<number, 'good' | 'mid' | 'neutral'> = { 1: 'good', 2: 'mid', 3: 'neutral' };
 const covLabel: Record<string, string> = { srh8: '8 SRH states', sfm: 'SFM states', lcb: '8 LCB states' };
+
+/** Viz kinds that embed the headline number inside the chart itself. */
+const EMBEDS_VALUE = new Set(['donutBinary', 'donutCause', 'donutFp', 'gauge', 'radial', 'range']);
 
 function CompositeTooltip({ infoKey }: { infoKey: string }) {
   const def = DEFINITIONS[infoKey];
@@ -46,13 +49,24 @@ function CompositeTooltip({ infoKey }: { infoKey: string }) {
   );
 }
 
-export function IndicatorCard({ indicator, onOpen }: { indicator: Indicator; onOpen: (i: Indicator) => void }) {
+export function IndicatorCard({
+  indicator,
+  onOpen,
+  siblings = {},
+  trends = null,
+}: {
+  indicator: Indicator;
+  onOpen: (i: Indicator) => void;
+  /** All indicators on the page — cross-indicator context (funnel, pipeline, cause donuts). */
+  siblings?: Record<string, Indicator>;
+  trends?: TrendSeries | null;
+}) {
   const filter = useFilterStore(pickFilter);
   const ind = indicator;
+  const spec = vizFor(ind.name);
 
   const hasDrill = ind.tier !== 3 && ind.pct > 0 && !ind.split4;
-  const isBreakdown = !!(ind.info && DEFINITIONS[ind.info] && DEFINITIONS[ind.info].items);
-  const eff = !ind.split4 && !isBreakdown ? effectiveIndicatorValue(ind, filter) : null;
+  const eff = !ind.split4 ? effectiveIndicatorValue(ind, filter) : null;
   const split = ind.split4 ? effectiveSplit4(ind, filter) : null;
 
   const outOfScope = eff?.outOfScope || split?.outOfScope;
@@ -60,21 +74,41 @@ export function IndicatorCard({ indicator, onOpen }: { indicator: Indicator; onO
   const displayPct = eff && !eff.outOfScope && eff.pct !== undefined ? eff.pct : ind.pct;
   const displayInd = { inverse: ind.inverse, pct: displayPct };
   const goodness = goodnessFor(displayInd);
-  const isGap = !ind.split4 && !isBreakdown && (ind.tier === 3 || ind.pct <= 0);
-  const scopeActive = !!(filter.state || filter.zone || filter.donor);
+  const isGap = !ind.split4 && (ind.tier === 3 || ind.pct <= 0);
+  const scopeActive = !!(
+    filter.state ||
+    filter.zone ||
+    filter.donor ||
+    filter.lga ||
+    filter.ward ||
+    filter.facilityType ||
+    filter.facility ||
+    filter.year ||
+    filter.month
+  );
 
   const splitData = ind.split4 ? (split && !split.outOfScope ? split : ind.split4) : null;
-  const isDonut =
-    !ind.split4 && !isBreakdown && ind.pct > 0 && !outOfScope && (looksLikePercent(displayValue) || !!eff);
+  const isPercentValue = looksLikePercent(displayValue);
+
+  // The redesigned per-indicator chart renders at national scope; under an active
+  // filter the card falls back to the compact scoped display so a national
+  // distribution is never mislabelled as a scoped one (split4 stays scoped-aware).
+  const showViz = !!spec && !isGap && !outOfScope && !scopeActive && !ind.split4;
+  const showGhost = !!spec && isGap;
 
   const clickable = hasDrill || !!ind.split4;
-  const showValue = !ind.split4 && !isBreakdown && !isGap && !outOfScope;
+  const showValue =
+    !ind.split4 &&
+    !isGap &&
+    !outOfScope &&
+    !(showViz && spec && EMBEDS_VALUE.has(spec.kind));
   // Chart-bearing cards get more horizontal room so bars/labels aren't cramped.
-  const wide = isBreakdown || !!ind.split4;
+  const wide = !!ind.split4 || (showViz && isWideViz(ind.name));
   // Explanations longer than roughly one line stay out of the card body — the
   // Info tooltip already carries the full text, so the card height stays uniform.
   const metaText = decodeHtml(ind.meta);
   const showMeta = metaText.length <= 70;
+  const valueSize = String(displayValue).length > 16 ? 'text-[17px]' : 'text-[26px]';
 
   return (
     <Card
@@ -98,22 +132,20 @@ export function IndicatorCard({ indicator, onOpen }: { indicator: Indicator; onO
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-1.5">
           <h3 className="text-[13px] font-bold leading-snug text-text">{cleanName(ind.name)}</h3>
-          {(ind.info || true) && (
-            <span onClick={(e) => e.stopPropagation()}>
-              <Tooltip
-                wide
-                content={
-                  ind.info ? (
-                    <CompositeTooltip infoKey={ind.info} />
-                  ) : (
-                    <span className="leading-relaxed">{decodeHtml(ind.meta)}</span>
-                  )
-                }
-              >
-                <Info size={13} className="mt-0.5 flex-shrink-0 text-muted hover:text-brand-bright" />
-              </Tooltip>
-            </span>
-          )}
+          <span onClick={(e) => e.stopPropagation()}>
+            <Tooltip
+              wide
+              content={
+                ind.info ? (
+                  <CompositeTooltip infoKey={ind.info} />
+                ) : (
+                  <span className="leading-relaxed">{decodeHtml(ind.meta)}</span>
+                )
+              }
+            >
+              <Info size={13} className="mt-0.5 flex-shrink-0 text-muted hover:text-brand-bright" />
+            </Tooltip>
+          </span>
         </div>
         <Badge tone={tierTone[ind.tier]} className="flex-shrink-0">
           {TIER_LABELS[ind.tier]}
@@ -122,8 +154,8 @@ export function IndicatorCard({ indicator, onOpen }: { indicator: Indicator; onO
 
       {showValue && (
         <div className="mt-2.5 flex items-end gap-2">
-          <span className="text-[26px] font-extrabold leading-none text-text">{displayValue}</span>
-          {isDonut && (
+          <span className={`${valueSize} font-extrabold leading-none text-text`}>{displayValue}</span>
+          {isPercentValue && displayPct > 0 && (
             <Badge tone={statusFor(displayPct, ind.inverse).level} className="mb-0.5">
               {statusFor(displayPct, ind.inverse).label}
             </Badge>
@@ -131,34 +163,23 @@ export function IndicatorCard({ indicator, onOpen }: { indicator: Indicator; onO
         </div>
       )}
 
-      {/* Body variant */}
+      {/* Body: the indicator's selected visualization (see INDICATOR_VIZ_REDESIGN.md) */}
       <div className="mt-3">
-        {isGap ? (
-          <EmptyMini kind="gap" />
-        ) : ind.split4 ? (
-          splitData ? (
-            <div>
-              <div className="flex h-3 overflow-hidden rounded-full">
-                <span style={{ width: `${splitData.l2}%`, background: '#2E8B57' }} />
-                <span style={{ width: `${splitData.l1}%`, background: '#6FA888' }} />
-                <span style={{ width: `${splitData.partial}%`, background: '#C9A227' }} />
-                <span style={{ width: `${splitData.nonfunc}%`, background: '#C2562C' }} />
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10.5px] text-muted">
-                <span><b className="text-[#34a76b]">■</b> L2 {splitData.l2}%</span>
-                <span><b className="text-[#6FA888]">■</b> L1 {splitData.l1}%</span>
-                <span><b className="text-[#C9A227]">■</b> Partial {splitData.partial}%</span>
-                <span><b className="text-[#C2562C]">■</b> Non-func {splitData.nonfunc}%</span>
-              </div>
-            </div>
+        {ind.split4 ? (
+          splitData && spec ? (
+            <IndicatorViz indicator={ind} spec={spec} siblings={siblings} trends={trends} split={splitData} />
           ) : (
             <EmptyMini kind="scope" />
           )
-        ) : isBreakdown ? (
-          <CompositeBreakdownChart items={DEFINITIONS[ind.info!].items!} />
+        ) : showGhost ? (
+          <IndicatorViz indicator={ind} spec={spec!} ghost siblings={siblings} trends={trends} />
+        ) : isGap ? (
+          <EmptyMini kind="gap" />
         ) : outOfScope ? (
           <EmptyMini kind="scope" />
-        ) : isDonut ? (
+        ) : showViz ? (
+          <IndicatorViz indicator={ind} spec={spec!} siblings={siblings} trends={trends} />
+        ) : isPercentValue && displayPct > 0 ? (
           <div className="flex items-center gap-2">
             <RingProgress pct={goodness} size={42} />
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-elev-3">
@@ -184,6 +205,14 @@ export function IndicatorCard({ indicator, onOpen }: { indicator: Indicator; onO
           {scopeActive && (eff || split) && !outOfScope && (
             <span className="text-[10px] font-semibold text-brand-bright">Scoped</span>
           )}
+          {eff && !eff.outOfScope && eff.smallN && (
+            <span
+              className="text-[10px] font-semibold text-warning"
+              title={`Small sample${eff.n != null ? ` (n = ${eff.n})` : ''} — interpret with caution`}
+            >
+              small n{eff.n != null ? ` = ${eff.n}` : ''}
+            </span>
+          )}
         </div>
         {clickable && (
           <span className="flex items-center gap-0.5 text-[11px] font-semibold text-brand-bright opacity-0 transition-opacity group-hover:opacity-100">
@@ -195,7 +224,7 @@ export function IndicatorCard({ indicator, onOpen }: { indicator: Indicator; onO
   );
 }
 
-/** Consistent, intentional empty state for data gaps / out-of-scope cards. */
+/** Consistent, intentional empty state for out-of-scope / unmapped gaps. */
 function EmptyMini({ kind }: { kind: 'gap' | 'scope' }) {
   const Icon = kind === 'gap' ? Inbox : EyeOff;
   const title = kind === 'gap' ? 'Data not yet available' : 'Out of scope';
