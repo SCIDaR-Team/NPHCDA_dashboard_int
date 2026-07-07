@@ -165,8 +165,8 @@ export function IndicatorCard({
       )}
 
       {/* Body: the indicator's selected visualization (see INDICATOR_VIZ_REDESIGN.md).
-          A fixed min-height keeps the chart band uniform so cards in a row align. */}
-      <div className="mt-3 flex min-h-[136px] flex-col justify-center">
+          flex-1 + justify-center makes the chart the centred hero of the card. */}
+      <div className="mt-3 flex min-h-[140px] flex-1 flex-col justify-center">
         {ind.split4 ? (
           splitData && spec ? (
             <IndicatorViz indicator={ind} spec={spec} siblings={siblings} trends={trends} split={splitData} />
@@ -197,7 +197,7 @@ export function IndicatorCard({
 
       {showMeta && <p className="mt-2.5 text-[11px] leading-relaxed text-muted">{metaText}</p>}
 
-      <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+      <div className="flex items-center justify-between gap-2 pt-3">
         <div className="flex items-center gap-1.5">
           {ind.coverage && covLabel[ind.coverage] && (
             <span className="rounded-full bg-bg-elev-2 px-2 py-0.5 text-[9.5px] font-bold uppercase text-muted">

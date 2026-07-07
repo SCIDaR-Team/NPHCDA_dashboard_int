@@ -31,7 +31,7 @@ export function MiniDonut({
   centerText,
   centerSub,
   ghost,
-  height = 132,
+  height = 150,
 }: {
   segments: DonutSegment[];
   centerText?: string;
@@ -40,11 +40,10 @@ export function MiniDonut({
   height?: number;
 }) {
   const theme = useChartTheme();
-  // A long sub-label (e.g. "Pre-eclampsia/eclampsia") won't fit inside the donut
-  // hole, so render it as a caption BENEATH the chart and centre the % in the hole.
-  // Short labels ("PPH", "Sepsis") stay in the centre.
-  const subBelow = !!centerSub && centerSub.length > 14;
-  const centerSubInHole = centerSub && !subBelow ? centerSub : undefined;
+  // Always name the metric as a caption BENEATH the donut (never cramped in the
+  // hole) and keep the hole for the big % only — clearest and consistent per card.
+  const subBelow = !!centerSub;
+  const centerSubInHole: string | undefined = undefined;
   const option = useMemo<EChartsOption>(() => {
     const data = ghost
       ? [
@@ -84,7 +83,7 @@ export function MiniDonut({
               style: {
                 text: centerText,
                 fill: ghost ? GHOST : theme.text,
-                font: `800 15px ${CHART_FONT}`,
+                font: `800 19px ${CHART_FONT}`,
                 textAlign: 'center',
               },
             },
@@ -110,22 +109,23 @@ export function MiniDonut({
 
   const legend = ghost ? [] : segments;
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-[132px] flex-shrink-0">
+    // Donut is centred as the hero; legend sits centred beneath it.
+    <div className="flex w-full flex-col items-center gap-2">
+      <div className="w-full" style={{ maxWidth: 176 }}>
         <EChart option={option} height={height} />
         {subBelow && (
-          <div className="-mt-1 text-center text-[10px] font-semibold leading-tight text-muted">
+          <div className="-mt-2 text-center text-[11px] font-semibold leading-tight text-text-soft">
             {centerSub}
           </div>
         )}
       </div>
       {legend.length > 0 && (
-        <div className="min-w-0 space-y-1 text-[10.5px] leading-snug text-muted">
+        <div className="flex flex-wrap justify-center gap-x-3.5 gap-y-1 text-[11px] leading-snug text-muted">
           {legend.map((s) => (
-            <div key={s.name} className={s.dim ? 'opacity-60' : ''}>
+            <span key={s.name} className={s.dim ? 'opacity-60' : ''}>
               <b style={{ color: s.color }}>■</b> {s.name}{' '}
               <b className="text-text">{Math.round(s.value * 10) / 10}%</b>
-            </div>
+            </span>
           ))}
         </div>
       )}
@@ -136,7 +136,7 @@ export function MiniDonut({
 /* ------------------------------------------------------------------ *
  * Gauge: single criticality-graded value with red/amber/green bands.
  * ------------------------------------------------------------------ */
-export function MiniGauge({ pct, ghost, height = 118 }: { pct?: number; ghost?: boolean; height?: number }) {
+export function MiniGauge({ pct, ghost, height = 146 }: { pct?: number; ghost?: boolean; height?: number }) {
   const theme = useChartTheme();
   const option = useMemo<EChartsOption>(() => {
     const v = ghost ? 0 : Math.min(100, Math.max(0, pct ?? 0));
@@ -175,10 +175,10 @@ export function MiniGauge({ pct, ghost, height = 118 }: { pct?: number; ghost?: 
             ? { show: false }
             : {
                 valueAnimation: true,
-                offsetCenter: [0, '28%'],
+                offsetCenter: [0, '30%'],
                 formatter: (val: number) => `${Math.round(val * 10) / 10}%`,
                 color: theme.text,
-                fontSize: 15,
+                fontSize: 19,
                 fontWeight: 800,
                 fontFamily: CHART_FONT,
               },
@@ -187,7 +187,18 @@ export function MiniGauge({ pct, ghost, height = 118 }: { pct?: number; ghost?: 
       ],
     };
   }, [pct, ghost, theme]);
-  return <EChart option={option} height={height} />;
+  return (
+    <div className="w-full">
+      <EChart option={option} height={height} />
+      {!ghost && (
+        <div className="-mt-2 flex items-center justify-between px-3 text-[10px] font-semibold text-muted-2">
+          <span>0%</span>
+          <span className="text-[9.5px] font-normal">low → high availability</span>
+          <span>100%</span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export interface MiniBarRow {
@@ -256,9 +267,10 @@ export function MiniStateBars({
         axisTick: { show: false },
         axisLine: { show: false },
         axisLabel: {
-          color: theme.muted,
+          color: theme.text,
           fontFamily: CHART_FONT,
-          fontSize: 10.5,
+          fontSize: 11,
+          fontWeight: 600,
           formatter: (v: string) => wrapByWords(v, 14),
         },
       },

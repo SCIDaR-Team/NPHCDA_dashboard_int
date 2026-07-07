@@ -77,7 +77,7 @@ export function KpiStrip({
               const showDelta = !(showViz && spec?.kind === 'kpiStat');
 
               return (
-                <Card key={card.label} className="flex h-full min-h-[300px] flex-col p-4" hover>
+                <Card key={card.label} className="flex h-full min-h-[336px] flex-col p-4" hover>
                   <div className="min-h-[32px] text-xs font-medium leading-snug text-muted">
                     {decodeHtml(card.label)}
                   </div>
@@ -112,8 +112,9 @@ export function KpiStrip({
                     </div>
                   )}
 
-                  {/* The theme-section chart (national scope). Fixed band keeps the six cards aligned. */}
-                  <div className="mt-auto flex h-[148px] flex-col justify-center pt-3">
+                  {/* The theme-section chart (national scope) — grows to fill and centres,
+                      so the chart is the card's hero and the six cards stay aligned. */}
+                  <div className="flex flex-1 flex-col justify-center pt-3">
                     {showViz ? (
                       <IndicatorViz indicator={ind!} spec={spec!} siblings={byName} trends={trends ?? null} />
                     ) : scopeActive ? (

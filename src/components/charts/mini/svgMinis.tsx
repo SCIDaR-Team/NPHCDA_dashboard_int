@@ -319,26 +319,99 @@ export function MiniZeroBar({ annotation }: { annotation: string }) {
  * ------------------------------------------------------------------ */
 export function MiniKpiStat({
   value,
+  unit,
   sub,
   deltaText,
   deltaDir,
+  columns,
+  columnLabels,
+  partialLastCol,
 }: {
   value: string;
+  unit?: string;
   sub?: string;
   deltaText?: string;
   deltaDir?: 'up' | 'down';
+  /** Recent-period values rendered as a compact column trend under the number. */
+  columns?: number[];
+  columnLabels?: string[];
+  /** De-emphasise the final column (an incomplete/partial latest period). */
+  partialLastCol?: boolean;
 }) {
   const up = deltaDir !== 'down';
+  const colMax = columns && columns.length ? Math.max(...columns, 1) : 1;
   return (
-    <div className="flex flex-col justify-center">
-      <div className="text-[34px] font-extrabold leading-none text-text">{value}</div>
+    <div className="flex w-full flex-col items-center justify-center text-center">
+      <div className="flex items-baseline justify-center gap-1.5">
+        <div className="text-[38px] font-extrabold leading-none text-text">{value}</div>
+        {unit && <div className="text-[11px] leading-snug text-muted">{unit}</div>}
+      </div>
       {deltaText && (
         <div className={`mt-2 flex items-center gap-1 text-xs font-bold ${up ? 'text-brand-bright' : 'text-danger'}`}>
           <span>{up ? '▲' : '▼'}</span>
           {deltaText}
         </div>
       )}
-      {sub && <div className="mt-1.5 text-[11px] leading-snug text-muted">{sub}</div>}
+      {columns && columns.length > 1 && (
+        <div className="mt-3 flex h-12 items-end justify-center gap-[4px]">
+          {columns.map((v, i) => {
+            const isLast = i === columns.length - 1;
+            const dim = partialLastCol && isLast;
+            return (
+              <div
+                key={i}
+                className="w-3 rounded-t-sm"
+                title={columnLabels?.[i] ? `${columnLabels[i]}${dim ? ' (partial)' : ''}` : undefined}
+                style={{
+                  height: `${Math.max((v / colMax) * 100, 6)}%`,
+                  background: '#3D7BB5',
+                  opacity: dim ? 0.35 : isLast ? 1 : 0.55,
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+      {sub && <div className="mx-auto mt-2 max-w-[250px] text-[11px] leading-snug text-muted">{sub}</div>}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Compare bars: a value against an explicit reference (e.g. rate vs target),
+ * drawn as two labelled bars on a shared scale so "above/below" reads instantly.
+ * ------------------------------------------------------------------ */
+export function MiniCompareBars({
+  rows,
+  unit,
+  verdict,
+  verdictTone = 'bad',
+}: {
+  rows: { label: string; value: number; color: string }[];
+  unit?: string;
+  verdict?: string;
+  verdictTone?: 'good' | 'bad';
+}) {
+  const max = Math.max(...rows.map((r) => r.value), 1) * 1.15;
+  return (
+    <div className="w-full space-y-2.5">
+      {rows.map((r) => (
+        <div key={r.label}>
+          <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px]">
+            <span className="font-semibold text-text-soft">{r.label}</span>
+            <span className="font-extrabold text-text">{r.value.toLocaleString('en-US')}</span>
+          </div>
+          <div className="h-3.5 w-full overflow-hidden rounded-full bg-bg-elev-3">
+            <div className="h-full rounded-full" style={{ width: `${(r.value / max) * 100}%`, background: r.color }} />
+          </div>
+        </div>
+      ))}
+      {unit && <div className="pt-0.5 text-[10px] text-muted-2">{unit}</div>}
+      {verdict && (
+        <div className={`text-[11px] font-bold ${verdictTone === 'good' ? 'text-brand-bright' : 'text-danger'}`}>
+          {verdict}
+        </div>
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import {
   MiniDeltaBar,
   MiniZeroBar,
   MiniKpiStat,
-  MiniRateBar,
+  MiniCompareBars,
   GhostViz,
   type CompositionSegment,
 } from '@/components/charts/mini/svgMinis';
@@ -215,16 +215,30 @@ const RATE_CFG: Record<
     max: 260,
     color: '#C2562C',
     benchmark: 70,
-    benchmarkLabel: 'SDG 2030 target · 70',
+    benchmarkLabel: 'SDG 2030 target',
     note: 'PFMO national · facility-based, not yet split BHCPF vs. non-BHCPF.',
   },
   'Under-5 Mortality Rate - BHCPF vs. non-BHCPF facilities': {
     unit: 'per 1,000 live births',
     max: 12,
     color: '#5B7089',
-    note: 'Institutional ratio (facility-recorded deaths ÷ live births) — not a population U5MR.',
+    note: 'Facility-recorded institutional ratio — not a population U5MR.',
   },
 };
+
+/** Median of a numeric list (for detecting an incomplete latest month). */
+function median(xs: number[]): number {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+/** First count in a mortality meta string, e.g. "(1,527 maternal deaths ÷ …)" → "1,527". */
+function deathsFromMeta(meta: string): string | null {
+  const m = decodeHtml(meta).match(/\(([\d,]+)\s+[^)÷]*deaths/i);
+  return m ? m[1] : null;
+}
 
 export function vizEmbedsValue(name: string): boolean {
   const spec = VIZ_MAP[name];
@@ -367,14 +381,14 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
 
     case 'radial':
       return (
-        <div className="flex items-center gap-4">
-          <div className="relative flex-shrink-0">
-            <RingProgress pct={ind.inverse ? 100 - ind.pct : ind.pct} size={110} thickness={5} color={RADIAL_COLOR} />
-            <span className="absolute inset-0 flex items-center justify-center text-[23px] font-extrabold text-text">
+        <div className="flex w-full flex-col items-center justify-center gap-2 text-center">
+          <div className="relative">
+            <RingProgress pct={ind.inverse ? 100 - ind.pct : ind.pct} size={124} thickness={5} color={RADIAL_COLOR} />
+            <span className="absolute inset-0 flex items-center justify-center text-[26px] font-extrabold text-text">
               {round1(ind.pct)}%
             </span>
           </div>
-          <div className="min-w-0 text-[11px] leading-snug text-muted">
+          <div className="mx-auto max-w-[220px] text-[11px] leading-snug text-muted">
             {ind.pct >= 99.5 ? (
               <>
                 <b className="text-text-soft">At ceiling.</b> Read with the source caveat in the info note.
@@ -398,7 +412,7 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
             { name: no, value: round1(100 - p), color: 'rgba(194,86,44,0.5)' },
           ]}
           centerText={`${p}%`}
-          centerSub={yes.toLowerCase()}
+          centerSub={yes}
         />
       );
     }
@@ -412,7 +426,7 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
             { name: 'Other methods', value: round1(100 - p), color: 'rgba(122,79,168,0.55)' },
           ]}
           centerText={`${p}%`}
-          centerSub="modern"
+          centerSub="Modern methods"
         />
       );
     }
@@ -466,20 +480,29 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
     case 'kpiStat': {
       const series = spec.trendKey && trends ? trends[spec.trendKey] : undefined;
       const vals = (series ?? []).filter((v): v is number => v != null);
+      const recent = vals.slice(-6);
+      // The latest month is often still reporting — flag it so it isn't misread
+      // as a real collapse, and compute the trend delta over completed months only.
+      const priorMed = median(recent.slice(0, -1));
+      const partialLast = recent.length >= 3 && recent[recent.length - 1] < 0.4 * priorMed;
+      const stable = partialLast ? recent.slice(0, -1) : recent;
       let deltaText: string | undefined;
       let deltaDir: 'up' | 'down' | undefined;
-      if (vals.length >= 2) {
-        const diff = vals[vals.length - 1] - vals[0];
-        const pctChange = vals[0] ? (diff / vals[0]) * 100 : 0;
+      if (stable.length >= 2) {
+        const diff = stable[stable.length - 1] - stable[0];
+        const pctChange = stable[0] ? (diff / stable[0]) * 100 : 0;
         deltaDir = diff >= 0 ? 'up' : 'down';
-        deltaText = `${diff >= 0 ? '+' : ''}${round1(pctChange)}% over the reported period`;
+        deltaText = `${diff >= 0 ? '+' : ''}${round1(pctChange)}% across recent months`;
       }
       return (
         <MiniKpiStat
           value={decodeHtml(ind.value)}
-          sub="Latest reporting month · facility-based volume"
+          unit="deliveries · latest month"
+          sub={partialLast ? 'Bars: recent monthly volume — final month still reporting.' : 'Bars: recent monthly volume.'}
           deltaText={deltaText}
           deltaDir={deltaDir}
+          columns={recent}
+          partialLastCol={partialLast}
         />
       );
     }
@@ -507,15 +530,32 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
       const cfg = RATE_CFG[ind.name];
       const v = numberIn(ind.value) ?? 0;
       if (!cfg) return <MiniKpiStat value={decodeHtml(ind.value)} />;
+      // With a published target we compare the two rates directly (reads instantly).
+      if (cfg.benchmark != null) {
+        const ratio = cfg.benchmark ? v / cfg.benchmark : 0;
+        return (
+          <MiniCompareBars
+            rows={[
+              { label: 'Facility-based (national)', value: v, color: cfg.color },
+              { label: cfg.benchmarkLabel ?? 'Target', value: cfg.benchmark, color: '#2E8B57' },
+            ]}
+            unit={cfg.unit}
+            verdict={
+              ratio > 1
+                ? `${round1(ratio)}× the ${cfg.benchmarkLabel ?? 'target'} of ${cfg.benchmark}`
+                : `At or below the ${cfg.benchmarkLabel ?? 'target'} of ${cfg.benchmark}`
+            }
+            verdictTone={ratio > 1 ? 'bad' : 'good'}
+          />
+        );
+      }
+      // No comparable benchmark (e.g. an institutional ratio) — a clear stat reads best.
+      const deaths = deathsFromMeta(ind.meta);
       return (
-        <MiniRateBar
-          value={v}
+        <MiniKpiStat
+          value={String(v)}
           unit={cfg.unit}
-          max={cfg.max}
-          color={cfg.color}
-          benchmark={cfg.benchmark}
-          benchmarkLabel={cfg.benchmarkLabel}
-          note={cfg.note}
+          sub={deaths ? `${cfg.note} · ${deaths} recorded deaths.` : cfg.note}
         />
       );
     }
@@ -554,8 +594,8 @@ function GhostIndicatorViz({ indicator: ind, spec }: { indicator: Indicator; spe
         return <MiniGauge ghost />;
       case 'radial':
         return (
-          <div className="flex items-center gap-4">
-            <RingProgress pct={0} size={110} thickness={5} color={RADIAL_COLOR} />
+          <div className="flex w-full flex-col items-center justify-center gap-2 text-center">
+            <RingProgress pct={0} size={124} thickness={5} color={RADIAL_COLOR} />
             <span className="text-[11px] text-muted-2">Coverage % once connected</span>
           </div>
         );
