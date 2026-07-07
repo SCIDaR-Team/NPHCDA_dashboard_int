@@ -207,22 +207,27 @@ function SnapshotCard({
           onClick();
         }
       }}
-      className="group flex h-full cursor-pointer flex-col p-5"
+      className="group flex h-full min-h-[268px] cursor-pointer flex-col p-5"
     >
       <h3 className="text-sm font-bold text-text">{block}</h3>
-      <div className="mt-3 flex items-center gap-4">
-        <div className="relative flex-shrink-0">
-          <RingProgress pct={goodness} size={64} />
-          <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-text">
+
+      {/* The ring is the hero: centred both axes so it never sits in a corner. */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
+        <div className="relative">
+          <RingProgress pct={goodness} size={124} thickness={5} />
+          <span className="absolute inset-0 flex items-center justify-center text-[26px] font-extrabold text-text">
             {Math.round(goodness)}
           </span>
         </div>
-        <div className="min-w-0">
-          <div className="text-xl font-extrabold text-text">{displayVal}</div>
-          <div className="mt-0.5 text-[11px] leading-snug text-muted">{cleanName(ind.name)}</div>
+        <div>
+          <div className="text-2xl font-extrabold leading-none text-text">{displayVal}</div>
+          <div className="mx-auto mt-1 max-w-[220px] text-[11px] leading-snug text-muted">
+            {cleanName(ind.name)}
+          </div>
         </div>
       </div>
-      <div className="mt-auto flex items-center justify-end pt-4">
+
+      <div className="mt-auto flex items-center justify-center border-t border-border-soft pt-3">
         <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-brand-bright">
           View details <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
         </span>
