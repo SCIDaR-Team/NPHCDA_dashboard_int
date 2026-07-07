@@ -216,6 +216,28 @@ export function scopedKpiValue(
   return { value: m.value, pct: m.pct, scoped: true };
 }
 
+/**
+ * A copy of an indicators-by-name map with each indicator's pct/value rescoped to
+ * the active filter (out-of-scope siblings become an explicit gap: pct 0, "—").
+ * Lets cross-indicator charts (ANC1→ANC4 funnel, cause-share donuts, pipeline)
+ * stay internally consistent when the card is scoped, instead of mixing a scoped
+ * headline with national context slices.
+ */
+export function scopedSiblings(
+  national: Record<string, Indicator>,
+  filter: FilterState
+): Record<string, Indicator> {
+  if (!cardScopeActive(filter)) return national;
+  const scoped = scopedMeasurements(filter);
+  if (!scoped) return national;
+  const out: Record<string, Indicator> = {};
+  for (const [name, ind] of Object.entries(national)) {
+    const m = scoped[name];
+    out[name] = m ? { ...ind, pct: m.pct, value: m.value } : { ...ind, pct: 0, value: '—' };
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ *
  * Trend granularity transforms (roll native monthly series up to quarter/year).
  * ------------------------------------------------------------------ */

@@ -10,7 +10,9 @@ import {
   barColorFor,
   statusFor,
   looksLikePercent,
+  scopedSiblings,
 } from '@/data/calculations';
+import { ALL_STATES, ZONE_STATES, STATE_DONORS } from '@/data/geo/states';
 import { DEFINITIONS, TIER_LABELS } from '@/data/catalogue';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { Indicator, TrendSeries } from '@/data/types';
@@ -90,11 +92,22 @@ export function IndicatorCard({
   const splitData = ind.split4 ? (split && !split.outOfScope ? split : ind.split4) : null;
   const isPercentValue = looksLikePercent(displayValue);
 
-  // The redesigned per-indicator chart renders at national scope; under an active
-  // filter the card falls back to the compact scoped display so a national
-  // distribution is never mislabelled as a scoped one (split4 stays scoped-aware).
-  const showViz = !!spec && !isGap && !outOfScope && !scopeActive && !ind.split4;
+  // The chart stays the SAME under a filter — it just renders the scoped value.
+  // (Ranked state-bar charts narrow to the in-scope states via scopeStates.)
+  const showViz = !!spec && !isGap && !outOfScope && !ind.split4;
   const showGhost = !!spec && isGap;
+
+  // Under a geo scope, feed the chart the scoped value + scoped sibling context so
+  // cross-indicator charts (funnel, cause donuts, pipeline) stay internally consistent.
+  const vizInd: Indicator = scopeActive && showViz ? { ...ind, pct: displayPct, value: displayValue } : ind;
+  const vizSiblings = scopeActive ? scopedSiblings(siblings, filter) : siblings;
+  const scopeStates: string[] | undefined = filter.state
+    ? [filter.state]
+    : filter.zone
+      ? ZONE_STATES[filter.zone]
+      : filter.donor
+        ? ALL_STATES.filter((s) => (STATE_DONORS[s] || []).includes(filter.donor))
+        : undefined;
 
   const clickable = hasDrill || !!ind.split4;
   const showValue =
@@ -180,7 +193,15 @@ export function IndicatorCard({
         ) : outOfScope ? (
           <EmptyMini kind="scope" />
         ) : showViz ? (
-          <IndicatorViz indicator={ind} spec={spec!} siblings={siblings} trends={trends} />
+          <IndicatorViz
+            indicator={vizInd}
+            spec={spec!}
+            siblings={vizSiblings}
+            trends={trends}
+            scoped={scopeActive}
+            scopeStates={scopeStates}
+            highlightState={filter.state || undefined}
+          />
         ) : isPercentValue && displayPct > 0 ? (
           <div className="flex items-center gap-2">
             <RingProgress pct={goodness} size={42} />

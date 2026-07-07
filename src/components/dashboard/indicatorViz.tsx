@@ -285,6 +285,21 @@ function topStateRows(name: string, top = 5): MiniBarRow[] {
     .slice(0, top);
 }
 
+/** Ranked rows restricted to the in-scope states (explicit zeros kept, so a
+ *  single selected state always yields its bar even when its value is 0). */
+function scopedStateRows(name: string, states: string[]): MiniBarRow[] {
+  const sm = stateMeasures(name);
+  return states
+    .map((st) => {
+      const m = sm[st];
+      if (!m) return null;
+      return { label: st, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, pct: m.pct };
+    })
+    .filter((r): r is MiniBarRow => r != null)
+    .sort((a, b) => b.magnitude - a.magnitude)
+    .slice(0, 8);
+}
+
 const fmtNairaCompact = (v: number): string => {
   const a = Math.abs(v);
   if (a >= 1e9) return `₦${+(v / 1e9).toFixed(1)}bn`;
@@ -331,9 +346,13 @@ export interface IndicatorVizProps {
   split?: Split4 | null;
   /** Highlight a state in distribution charts when a state-only filter is active. */
   highlightState?: string;
+  /** A card-level filter is active (indicator/siblings already carry scoped values). */
+  scoped?: boolean;
+  /** The states in the active geo scope — ranked state-bar charts narrow to these. */
+  scopeStates?: string[];
 }
 
-export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, split, highlightState }: IndicatorVizProps) {
+export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, split, highlightState, scoped, scopeStates }: IndicatorVizProps) {
   if (ghost) return <GhostIndicatorViz indicator={ind} spec={spec} />;
 
   switch (spec.kind) {
@@ -352,8 +371,10 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
 
     case 'stateBarsCount':
     case 'stateBarsNaira': {
-      const rows = topStateRows(ind.name);
       const naira = spec.kind === 'stateBarsNaira';
+      // Under a geo scope the SAME ranked-bar chart narrows to the in-scope states
+      // (a single state → its one bar) instead of morphing into another chart type.
+      const rows = scopeStates ? scopedStateRows(ind.name, scopeStates) : topStateRows(ind.name);
       if (!rows.length) return <MiniBullet pct={ind.pct} inverse={ind.inverse} />;
       return (
         <div>
@@ -365,7 +386,9 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
             formatter={naira ? fmtNairaCompact : fmtCountCompact}
           />
           <div className="mt-1 text-[10px] text-muted-2">
-            Top states by {naira ? '₦ received' : 'volume'} — open the deep dive for all.
+            {scopeStates
+              ? `${naira ? '₦ received' : 'Volume'} for the current scope.`
+              : `Top states by ${naira ? '₦ received' : 'volume'} — open the deep dive for all.`}
           </div>
         </div>
       );
@@ -478,6 +501,10 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
     }
 
     case 'kpiStat': {
+      // Scoped: the national monthly trend no longer applies — show the scoped total.
+      if (scoped) {
+        return <MiniKpiStat value={decodeHtml(ind.value)} unit="deliveries · current scope" />;
+      }
       const series = spec.trendKey && trends ? trends[spec.trendKey] : undefined;
       const vals = (series ?? []).filter((v): v is number => v != null);
       const recent = vals.slice(-6);
@@ -550,7 +577,7 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
         );
       }
       // No comparable benchmark (e.g. an institutional ratio) — a clear stat reads best.
-      const deaths = deathsFromMeta(ind.meta);
+      const deaths = scoped ? null : deathsFromMeta(ind.meta);
       return (
         <MiniKpiStat
           value={String(v)}

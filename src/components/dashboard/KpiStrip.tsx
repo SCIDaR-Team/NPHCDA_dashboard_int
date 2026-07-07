@@ -2,7 +2,7 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, Skeleton, Badge } from '@/components/ui';
 import { IndicatorViz, vizFor, vizEmbedsValue } from '@/components/dashboard/indicatorViz';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
-import { scopedKpiValue, scopeLabel, statusFor, looksLikePercent } from '@/data/calculations';
+import { scopedKpiValue, scopeLabel, statusFor, looksLikePercent, scopedSiblings } from '@/data/calculations';
 import { decodeHtml } from '@/lib/format';
 import type { KpiGroup, Indicator, Blocks, TrendSeries } from '@/data/types';
 
@@ -67,14 +67,19 @@ export function KpiStrip({
               const ind = card.indicator ? byName[card.indicator] : undefined;
               const spec = card.indicator ? vizFor(card.indicator) : undefined;
 
-              // Render the indicator's theme-section chart, but only at national scope —
-              // a national distribution must never be mislabelled under an active filter.
-              const showViz = !!ind && !!spec && !scopeActive && ind.pct > 0 && !ind.split4;
+              // The chart stays the SAME under a filter — it just renders the scoped
+              // value. Only a scope with no data for this indicator hides the chart.
+              const scopedNoData = scopeActive && scoped.value === '—';
+              const showViz = !!ind && !!spec && ind.pct > 0 && !ind.split4 && !scopedNoData;
               const embeds = !!card.indicator && vizEmbedsValue(card.indicator);
               const showValue = !showViz || !embeds;
               const isPct = looksLikePercent(scoped.value);
               // The kpiStat chart carries its own period delta — don't repeat it here.
               const showDelta = !(showViz && spec?.kind === 'kpiStat');
+              // Feed the chart the scoped value + scoped sibling context under a filter.
+              const vizInd: Indicator | undefined =
+                ind && scopeActive && showViz ? { ...ind, pct: scoped.pct, value: scoped.value } : ind;
+              const vizSiblings = scopeActive ? scopedSiblings(byName, filter) : byName;
 
               return (
                 <Card key={card.label} className="flex h-full min-h-[336px] flex-col p-4" hover>
@@ -112,15 +117,21 @@ export function KpiStrip({
                     </div>
                   )}
 
-                  {/* The theme-section chart (national scope) — grows to fill and centres,
-                      so the chart is the card's hero and the six cards stay aligned. */}
+                  {/* The theme-section chart — grows to fill and centres, so the chart is
+                      the card's hero and the six cards stay aligned. Same chart when scoped. */}
                   <div className="flex flex-1 flex-col justify-center pt-3">
                     {showViz ? (
-                      <IndicatorViz indicator={ind!} spec={spec!} siblings={byName} trends={trends ?? null} />
-                    ) : scopeActive ? (
+                      <IndicatorViz
+                        indicator={vizInd!}
+                        spec={spec!}
+                        siblings={vizSiblings}
+                        trends={trends ?? null}
+                        scoped={scopeActive}
+                        highlightState={filter.state || undefined}
+                      />
+                    ) : scopedNoData ? (
                       <div className="rounded-lg border border-dashed border-border bg-bg-elev-2/40 px-3 py-4 text-center text-[10.5px] leading-snug text-muted">
-                        National distribution hidden under an active filter. The value above is scoped to{' '}
-                        <b className="text-text-soft">{scope}</b>.
+                        No data for <b className="text-text-soft">{scope}</b> on this indicator.
                       </div>
                     ) : null}
                   </div>

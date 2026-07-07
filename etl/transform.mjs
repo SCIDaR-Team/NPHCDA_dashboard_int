@@ -149,7 +149,7 @@ function byMonth(records, aggFn) {
   return out;
 }
 
-function buildTrends(srh, sfm) {
+function buildTrends(srh, sfm, pfmo) {
   const s = srh.allRecords;
   const anc1 = byMonth(s, (rows) => {
     const lbv = sum(rows, (r) => r.livebirths);
@@ -170,6 +170,40 @@ function buildTrends(srh, sfm) {
     'ANC4 coverage (%)': alignToMonthFrame(anc4),
     'Modern contraceptive use (%)': alignToMonthFrame(fp),
     'PPH bundle availability (%)': alignToMonthFrame(pphAvail),
+    ...buildPfmoTrends(pfmo),
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * PFMO national MONTHLY trends. PFMO's reporting volume swings widely month to
+ * month (a few thousand → ~28k facilities), so raw COUNT sums are NOT comparable
+ * across months. The death / immunisation signals are therefore trended as
+ * volume-robust RATES — the SAME math as indicators #58 (MMR), #59 (U5MR) and
+ * #87 (Penta3 completion) — which normalise for how many facilities reported.
+ * Live births is kept as the one raw count (it doubles as a reporting-coverage
+ * signal). A per-month reporting-facility floor gaps any partial month so it can't
+ * distort the tail (the 42-month frame already drops the current in-progress month).
+ * ------------------------------------------------------------------ */
+const PFMO_MIN_FACILITIES = 500;
+function buildPfmoTrends(pfmo) {
+  const recs = pfmo.allRecords || pfmo.records || [];
+  // Only plot a month once enough facilities have reported it.
+  const guarded = (fn) => (rows) => (rows.length >= PFMO_MIN_FACILITIES ? fn(rows) : null);
+  const rate = (rows, numFn, per) => {
+    const lb = sum(rows, (r) => r.livebirths);
+    return lb ? (sum(rows, numFn) / lb) * per : null;
+  };
+
+  const penta = byMonth(recs, guarded((rows) => ratioPct(sum(rows, (r) => r.penta3), sum(rows, (r) => r.penta1))));
+  const mmr = byMonth(recs, guarded((rows) => rate(rows, (r) => r.maternalDeaths, 100000)));
+  const u5mr = byMonth(recs, guarded((rows) => rate(rows, (r) => r.under5Deaths, 1000)));
+  const births = byMonth(recs, guarded((rows) => sum(rows, (r) => r.livebirths)));
+
+  return {
+    'Penta 3 completion (%)': alignToMonthFrame(penta),
+    'Maternal mortality ratio (per 100k)': alignToMonthFrame(mmr),
+    'Under-5 mortality (per 1k)': alignToMonthFrame(u5mr),
+    'Live births (count)': alignToMonthFrame(births),
   };
 }
 
@@ -344,7 +378,7 @@ function buildFunctionalStatus(mamii) {
 export function transform({ srh, sfm, sheet, mamii = { records: [] }, pfmo = { records: [], allRecords: [] } }) {
   const indicators = buildIndicators(srh, sfm, sheet, mamii, pfmo);
   const facts = buildFacts(srh, sfm, sheet, mamii, pfmo);
-  const trends = buildTrends(srh, sfm);
+  const trends = buildTrends(srh, sfm, pfmo);
   const kpis = buildKpis(indicators, trends);
   const stateScores = buildStateScores(srh, sfm);
   const facilities = buildFacilities(srh, sfm, sheet);
