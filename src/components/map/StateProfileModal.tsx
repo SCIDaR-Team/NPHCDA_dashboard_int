@@ -5,15 +5,13 @@ import { heatColor, coverageStates, stateMeasures } from '@/data/calculations';
 import { FUNCTIONAL_STATUS_INDICATOR } from '@/data/scopedEngine';
 import { STATE_DONORS } from '@/data/geo/states';
 import { cleanName, decodeHtml } from '@/lib/format';
-import { PROFILE_INDICATOR_NAMES } from './stateProfile';
+import { PROFILE_INDICATOR_NAMES, stateCompositeScore } from './stateProfile';
 import type { Blocks, BlockName, Indicator } from '@/data/types';
 
 interface Props {
   /** Which state to profile, or null when the modal is closed. */
   state: string | null;
   blocks: Blocks | null;
-  /** Composite performance score per state (0–100). */
-  stateScores: Record<string, number> | null | undefined;
   onClose: () => void;
   /** Scope the whole dashboard to this state (bridges back to the filter). */
   onScope?: (state: string) => void;
@@ -42,11 +40,15 @@ function blockOfName(blocks: Blocks): Record<string, BlockName> {
  * curated headline indicators with the state's REAL measurement. Out-of-coverage /
  * unmeasured cells are labelled honestly — never fabricated.
  */
-export function StateProfileModal({ state, blocks, stateScores, onClose, onScope }: Props) {
+export function StateProfileModal({ state, blocks, onClose, onScope }: Props) {
+  const byName = useMemo<Record<string, Indicator>>(() => {
+    const m: Record<string, Indicator> = {};
+    if (blocks) (Object.keys(blocks) as BlockName[]).forEach((bn) => blocks[bn].forEach((i) => (m[i.name] = i)));
+    return m;
+  }, [blocks]);
+
   const rows = useMemo<ProfileRow[]>(() => {
     if (!state || !blocks) return [];
-    const byName: Record<string, Indicator> = {};
-    (Object.keys(blocks) as BlockName[]).forEach((bn) => blocks[bn].forEach((i) => (byName[i.name] = i)));
     const blockOf = blockOfName(blocks);
 
     return PROFILE_INDICATOR_NAMES.map((name) => {
@@ -73,7 +75,8 @@ export function StateProfileModal({ state, blocks, stateScores, onClose, onScope
 
   if (!state) return null;
 
-  const score = stateScores?.[state];
+  // Same uniform composite the map paints this state with, so the two never disagree.
+  const score = stateCompositeScore(state, byName);
   const donors = STATE_DONORS[state] ?? [];
 
   return (

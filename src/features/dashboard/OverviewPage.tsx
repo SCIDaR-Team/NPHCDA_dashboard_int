@@ -7,7 +7,7 @@ import { KpiStrip } from '@/components/dashboard/KpiStrip';
 import { NigeriaMap, MapLegend } from '@/components/map/NigeriaMap';
 import { MapIndicatorPicker, type MapColorSelection } from '@/components/map/MapIndicatorPicker';
 import { StateProfileModal } from '@/components/map/StateProfileModal';
-import { PROFILE_INDICATOR_NAMES } from '@/components/map/stateProfile';
+import { stateCompositeScore } from '@/components/map/stateProfile';
 import { RingProgress } from '@/components/charts/RingProgress';
 import { IndicatorModal } from '@/components/dashboard/IndicatorModal';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
@@ -25,7 +25,6 @@ export function OverviewPage() {
   const ds = getDataSource();
   const { data: kpiGroups, loading: kpiLoading } = useAsync(() => ds.getKpiGroups());
   const { data: blocks, loading: blocksLoading, error, reload } = useAsync(() => ds.getBlocks());
-  const { data: stateScores } = useAsync(() => ds.getStateScores());
   const { data: trends } = useAsync(() => ds.getTrendSeries());
 
   const filter = useFilterStore(pickFilter);
@@ -50,8 +49,6 @@ export function OverviewPage() {
   // rather than colouring a fabricated/zero value.
   const activeInd = selection.name ? allByName[selection.name] : null;
   const mapValues = useMemo<Record<string, number>>(() => {
-    const scores = stateScores ?? {};
-
     // Single indicator selected → colour by its real per-state goodness only.
     if (activeInd) {
       const measures = stateMeasures(activeInd.name);
@@ -64,30 +61,17 @@ export function OverviewPage() {
       return out;
     }
 
-    // Composite: use the ETL readiness score where it exists (SRH/SFM states), and
-    // otherwise fall back to the average goodness of the curated profile indicators.
-    // A state is thus greyed out ONLY when it has no measurement for any of them —
-    // i.e. its profile would be empty too — so the map and the profile stay consistent.
+    // Composite: the uniform readiness score — every state is the average goodness of
+    // the curated profile indicators it has real data for (see stateCompositeScore).
+    // A state is greyed out ONLY when it has no measurement for any of them, so the
+    // map and the state profile always agree.
     const out: Record<string, number> = {};
     ALL_STATES.forEach((st) => {
-      if (scores[st] !== undefined) {
-        out[st] = scores[st];
-        return;
-      }
-      let sum = 0;
-      let cnt = 0;
-      PROFILE_INDICATOR_NAMES.forEach((name) => {
-        const ind = allByName[name];
-        if (!ind) return;
-        const m = stateMeasures(name)[st];
-        if (!m) return;
-        sum += ind.inverse ? 100 - m.pct : m.pct;
-        cnt++;
-      });
-      if (cnt) out[st] = +(sum / cnt).toFixed(1);
+      const v = stateCompositeScore(st, allByName);
+      if (v !== null) out[st] = v;
     });
     return out;
-  }, [activeInd, stateScores, allByName]);
+  }, [activeInd, allByName]);
 
   const highlight = useMemo<string[] | null>(() => {
     if (filter.state) return [filter.state];
@@ -209,7 +193,6 @@ export function OverviewPage() {
       <StateProfileModal
         state={profileState}
         blocks={blocks ?? null}
-        stateScores={stateScores}
         onClose={() => setProfileState(null)}
         onScope={scopeToState}
       />
