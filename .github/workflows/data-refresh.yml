@@ -1,11 +1,11 @@
 name: Monthly data refresh
 
-# Pulls the live sources (SRH ODK, SFM ODK, SRH Google Sheet) via the ETL and
-# refreshes public/data-snapshot/measurements.json. Commits ONLY when the data
-# actually changed, which triggers a Vercel redeploy of the live site.
+# Pulls the live sources (SRH ODK, SFM ODK, SRH Google Sheet, PFMO API) via the
+# ETL and refreshes public/data-snapshot/measurements.json. Commits ONLY when the
+# data actually changed, which triggers a Vercel redeploy of the live site.
 #
 # Credentials come from repo Secrets (Settings → Secrets and variables → Actions):
-#   SRH_ODK_USER, SRH_ODK_PASS, SFM_ODK_USER, SFM_ODK_PASS
+#   SRH_ODK_USER, SRH_ODK_PASS, SFM_ODK_USER, SFM_ODK_PASS, PFMO_API_KEY
 # They are never written to the repo and never shipped to the browser.
 
 on:
@@ -46,6 +46,7 @@ jobs:
           SRH_ODK_PASS: ${{ secrets.SRH_ODK_PASS }}
           SFM_ODK_USER: ${{ secrets.SFM_ODK_USER }}
           SFM_ODK_PASS: ${{ secrets.SFM_ODK_PASS }}
+          PFMO_API_KEY: ${{ secrets.PFMO_API_KEY }}
         run: npm run data:refresh
 
       - name: Verify all sources succeeded
