@@ -165,26 +165,70 @@ export function scopedMeasurements(filter: FilterState): Record<string, ScopedMe
  * per facts load and memoised: each key runs the engine over just that key's rows,
  * so the total work is ~one pass over all records.
  * ------------------------------------------------------------------ */
-const distinct = (arr: (string | undefined | null)[]): string[] => [...new Set(arr.filter((v): v is string => !!v))];
-
+/**
+ * One distribution across a single dimension (per state or per facility), built by
+ * bucketing every source's rows by key ONCE (O(N)) and running the shared engine once
+ * per bucket — instead of re-scanning ALL records for every distinct key, which was
+ * O(keys × N). With PFMO's ~54k facility-months spread over ~36k facility keys that was
+ * billions of filter passes on the main thread and froze the tab ("Page Unresponsive").
+ *
+ * `excludePfmo` drops PFMO from a distribution whose grain PFMO can't honestly fill:
+ * PFMO rows are one-per-facility-month, so a per-FACILITY MMR/Penta3/etc. is a single
+ * noisy month, and there are ~36k of them — neither a meaningful ranking nor a
+ * renderable table. PFMO's honest disaggregation is per-STATE (kept by stateMeasures);
+ * the national and per-state figures are unaffected either way.
+ */
 function computeDim(
   facts: SnapshotFacts,
   keysFor: (r: EngineRecord) => string | undefined,
+  excludePfmo = false,
 ): Record<string, Record<string, ScopedMeasure>> {
-  const rows = [...facts.srh, ...facts.sfm, ...facts.sheet, ...(facts.mamii ?? []), ...(facts.pfmo ?? [])];
+  const bucketBy = (rows: EngineRecord[]): Map<string, EngineRecord[]> => {
+    const m = new Map<string, EngineRecord[]>();
+    for (const r of rows) {
+      const k = keysFor(r);
+      if (!k) continue;
+      const a = m.get(k);
+      if (a) a.push(r);
+      else m.set(k, [r]);
+    }
+    return m;
+  };
+  const srh = bucketBy(facts.srh);
+  const sfm = bucketBy(facts.sfm);
+  const sheet = bucketBy(facts.sheet);
+  const mamii = bucketBy(facts.mamii ?? []);
+  const pfmo = excludePfmo ? new Map<string, EngineRecord[]>() : bucketBy(facts.pfmo ?? []);
+  const keys = new Set<string>([
+    ...srh.keys(), ...sfm.keys(), ...sheet.keys(), ...mamii.keys(), ...pfmo.keys(),
+  ]);
+  const EMPTY: EngineRecord[] = [];
   const out: Record<string, Record<string, ScopedMeasure>> = {};
-  for (const key of distinct(rows.map(keysFor))) {
-    const m = runEngine(facts, (r) => keysFor(r) === key, false);
+  for (const key of keys) {
+    // Each bucket already holds exactly this key's rows, so a `true` predicate over the
+    // per-key slice is identical to the old `keysFor(r) === key` filter over all rows.
+    const scoped: SnapshotFacts = {
+      srh: srh.get(key) ?? EMPTY,
+      sfm: sfm.get(key) ?? EMPTY,
+      sheet: sheet.get(key) ?? EMPTY,
+      mamii: mamii.get(key) ?? EMPTY,
+      pfmo: pfmo.get(key) ?? EMPTY,
+    };
+    const m = runEngine(scoped, () => true, false);
     for (const [name, meas] of Object.entries(m)) (out[name] ||= {})[key] = meas;
   }
   return out;
 }
 
-function memoDim(cache: DimCache, keysFor: (r: EngineRecord) => string | undefined): Record<string, Record<string, ScopedMeasure>> {
+function memoDim(
+  cache: DimCache,
+  keysFor: (r: EngineRecord) => string | undefined,
+  excludePfmo = false,
+): Record<string, Record<string, ScopedMeasure>> {
   const facts = useSnapshotStore.getState().facts;
   if (!facts) return {};
   if (cache.facts !== facts || !cache.val) {
-    cache.val = computeDim(facts, keysFor);
+    cache.val = computeDim(facts, keysFor, excludePfmo);
     cache.facts = facts;
   }
   return cache.val;
@@ -331,7 +375,9 @@ export function parseFacilityKey(key: string): { state: string; lga: string; fac
 export function facilityMeasures(indicatorName: string): Record<string, ScopedMeasure> {
   if (AGGREGATE_ONLY_INDICATORS.has(indicatorName)) return {}; // no honest facility grain
   if (indicatorName === FUNCTIONAL_STATUS_INDICATOR) return functionalStatusByFacility();
-  return memoDim(facilityCache, facilityKeyOf)[indicatorName] ?? {};
+  // Exclude PFMO from the per-facility grain: its one-row-per-facility-month values make
+  // a per-facility ranking meaningless, and its ~36k facilities can't render or compute.
+  return memoDim(facilityCache, facilityKeyOf, true)[indicatorName] ?? {};
 }
 
 /**

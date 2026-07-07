@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Layers, RotateCcw } from 'lucide-react';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, Badge, Input, Select, EmptyState } from '@/components/ui';
@@ -39,6 +39,9 @@ function numericValue(row: FacilityRow, key: string): number | null {
 
 type SortKey = 'state' | 'lga' | 'facility' | string;
 type SortDir = 'asc' | 'desc';
+
+/** Facility rows shown per page in the matrix. */
+const PAGE_SIZE = 50;
 
 export function FacilityDeepdivePage() {
   const globalFilter = useFilterStore(pickFilter);
@@ -109,6 +112,14 @@ export function FacilityDeepdivePage() {
     const states = new Set(rows.map((r) => r.state)).size;
     return { total, cemonc, bemonc, l2, states };
   }, [rows]);
+
+  // Paginate the matrix. Any change to the filtered/sorted set sends us back to page 1.
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [rows]);
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount); // guard against a stale page after the list shrinks
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pagedRows = useMemo(() => rows.slice(pageStart, pageStart + PAGE_SIZE), [rows, pageStart]);
 
   const cols = FD_COLUMNS.filter((c) => c.always || activeCols.has(c.key));
 
@@ -289,10 +300,12 @@ export function FacilityDeepdivePage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => {
-                  const newState = groupByState && (i === 0 || rows[i - 1].state !== r.state);
+                {pagedRows.map((r, i) => {
+                  // Show a state header at the top of each page (i === 0) and wherever the
+                  // state changes within the page, so grouping stays correct across pages.
+                  const newState = groupByState && (i === 0 || pagedRows[i - 1].state !== r.state);
                   return (
-                    <Fragment key={i}>
+                    <Fragment key={pageStart + i}>
                       {newState && (
                         <tr className="bg-bg-elev-3/60">
                           <td colSpan={3 + cols.length} className="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-brand-bright">
@@ -326,6 +339,33 @@ export function FacilityDeepdivePage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {rows.length > 0 && pageCount > 1 && (
+          <div className="mt-3 flex items-center justify-between text-xs text-muted">
+            <span>
+              {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, rows.length)} of {rows.length} facilities
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="rounded-lg border border-border bg-bg-elev-2 px-3 py-1.5 font-semibold text-text transition-colors hover:text-brand focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-text"
+              >
+                Prev
+              </button>
+              <span className="tabular-nums">
+                Page {safePage} / {pageCount}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={safePage >= pageCount}
+                className="rounded-lg border border-border bg-bg-elev-2 px-3 py-1.5 font-semibold text-text transition-colors hover:text-brand focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-text"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </SectionBlock>

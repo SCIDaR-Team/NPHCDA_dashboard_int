@@ -17,6 +17,9 @@ type RecvFilter = 'all' | 'received' | 'none';
 
 const BHCPF_FUNDS_INDICATOR = 'Total BHCPF funds received vs. expected';
 
+/** Facility rows shown per page in the "By facility" table. */
+const FACILITY_PAGE_SIZE = 50;
+
 /** Segment colours for the functional-status stacked bar / facility badges. */
 const STATUS_COLORS: Record<string, string> = {
   L2: '#2E8B57',
@@ -67,6 +70,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   const [view, setView] = useState<View>('state');
   const [facilityState, setFacilityState] = useState('');
   const [recvFilter, setRecvFilter] = useState<RecvFilter>('all');
+  const [page, setPage] = useState(1);
   const theme = useChartTheme();
   const ds = getDataSource();
   const { data: facilities } = useAsync(() => ds.getFacilities());
@@ -83,7 +87,11 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
     setView('state');
     setFacilityState('');
     setRecvFilter('all');
+    setPage(1);
   }, [ind?.name]);
+
+  // Any change to what the facility table shows sends us back to the first page.
+  useMemo(() => setPage(1), [facilityState, recvFilter, view]);
 
   // Ranked descending by the real magnitude so every chart/table reads top-to-bottom
   // largest → smallest, even for count/rate indicators (colour still encodes
@@ -127,6 +135,15 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
     }
     return rows;
   }, [facilityRows, facilityState, isBhcpfFunds, recvFilter]);
+
+  // Paginate the (possibly large) facility list so we never mount thousands of rows.
+  const pageCount = Math.max(1, Math.ceil(visibleFacilityRows.length / FACILITY_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount); // guard against a stale page after the list shrinks
+  const pageStart = (safePage - 1) * FACILITY_PAGE_SIZE;
+  const pagedFacilityRows = useMemo(
+    () => visibleFacilityRows.slice(pageStart, pageStart + FACILITY_PAGE_SIZE),
+    [visibleFacilityRows, pageStart]
+  );
 
   const hasFacility = facilityRows.length > 0;
   const isGap = !ind || !(ind.pct > 0) || stateRows.length === 0;
@@ -284,9 +301,9 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleFacilityRows.map((d, i) => (
-                      <tr key={i} className="border-t border-border-soft">
-                        <td className="px-3 py-2 text-muted">{i + 1}</td>
+                    {pagedFacilityRows.map((d, i) => (
+                      <tr key={pageStart + i} className="border-t border-border-soft">
+                        <td className="px-3 py-2 text-muted">{pageStart + i + 1}</td>
                         <td className="px-3 py-2 font-medium text-text">{d.facility}</td>
                         <td className="px-3 py-2 text-muted">{d.lga}</td>
                         <td className="px-3 py-2 text-muted">{d.state}</td>
@@ -322,6 +339,33 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                   </tbody>
                 </table>
               </div>
+              {pageCount > 1 && (
+                <div className="mt-3 flex items-center justify-between text-xs text-muted">
+                  <span>
+                    {pageStart + 1}–{Math.min(pageStart + FACILITY_PAGE_SIZE, visibleFacilityRows.length)} of{' '}
+                    {visibleFacilityRows.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={safePage <= 1}
+                      className="rounded-md border border-border bg-bg-elev-2 px-3 py-1.5 font-semibold text-text transition-colors hover:text-brand disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-text"
+                    >
+                      Prev
+                    </button>
+                    <span className="tabular-nums">
+                      Page {safePage} / {pageCount}
+                    </span>
+                    <button
+                      onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                      disabled={safePage >= pageCount}
+                      className="rounded-md border border-border bg-bg-elev-2 px-3 py-1.5 font-semibold text-text transition-colors hover:text-brand disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-text"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </>
