@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { STATE_PATHS, STATE_CENTROIDS, STATE_DONORS, MAP_VBW, MAP_VBH } from '@/data/geo/states';
 import { heatColor } from '@/data/calculations';
+import { cssVar } from '@/components/charts/chartTheme';
+import { useThemeStore } from '@/store/themeStore';
 
 /** Short labels for the longer names so the crowded southern cluster stays legible. */
 const STATE_LABELS: Record<string, string> = {
@@ -10,11 +12,13 @@ const STATE_LABELS: Record<string, string> = {
 };
 
 interface NigeriaMapProps {
-  /** 0–100 performance value per state (drives fill colour). */
+  /** 0–100 performance value per state (drives fill colour). A state absent from this
+   *  map has no real measurement for the current selection → painted as "no data". */
   values: Record<string, number>;
   selected?: string;
   /** States to keep highlighted; others dim (e.g. an active filter). */
   highlight?: string[] | null;
+  /** Click a state (opens its cross-block profile in the Overview). */
   onStateClick?: (state: string) => void;
 }
 
@@ -41,6 +45,14 @@ function DonorMarker({ cx, cy, donor }: DonorMarkerProps) {
 
 export function NigeriaMap({ values, selected, highlight, onStateClick }: NigeriaMapProps) {
   const [hover, setHover] = useState<{ state: string; x: number; y: number } | null>(null);
+  // Subscribe to the theme so the map recolours on dark/light toggle; the neutral
+  // surfaces (no-data fill, inter-state stroke, label halo) come from theme tokens.
+  const theme = useThemeStore((s) => s.theme);
+  const isDark = theme === 'dark';
+  const noDataFill = cssVar('--c-bg-elev-3');
+  const stateStroke = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
+  const labelFill = isDark ? cssVar('--c-text') : '#10203A';
+  const labelHalo = isDark ? cssVar('--c-bg') : 'rgba(255,255,255,0.9)';
 
   return (
     <div className="relative mx-auto w-full" style={{ maxWidth: 560 }}>
@@ -52,15 +64,16 @@ export function NigeriaMap({ values, selected, highlight, onStateClick }: Nigeri
         aria-label="Nigeria states performance map"
       >
         {Object.entries(STATE_PATHS).map(([state, d]) => {
-          const v = values[state] ?? 0;
+          const v = values[state];
+          const hasData = v !== undefined;
           const dim = highlight && !highlight.includes(state);
           const isSel = selected === state;
           return (
             <path
               key={state}
               d={d}
-              fill={heatColor(v)}
-              stroke={isSel ? '#fff' : 'rgba(0,0,0,0.35)'}
+              fill={hasData ? heatColor(v) : noDataFill}
+              stroke={isSel ? '#fff' : stateStroke}
               strokeWidth={isSel ? 1.8 : 0.6}
               opacity={dim ? 0.25 : 1}
               className="cursor-pointer transition-[opacity,stroke-width] duration-150 hover:opacity-90"
@@ -96,11 +109,11 @@ export function NigeriaMap({ values, selected, highlight, onStateClick }: Nigeri
             textAnchor="middle"
             fontSize={11}
             fontWeight={600}
-            fill="#10203A"
+            fill={labelFill}
             pointerEvents="none"
             style={{
               paintOrder: 'stroke',
-              stroke: 'rgba(255,255,255,0.9)',
+              stroke: labelHalo,
               strokeWidth: 2.4,
               strokeLinejoin: 'round',
             }}
@@ -117,9 +130,16 @@ export function NigeriaMap({ values, selected, highlight, onStateClick }: Nigeri
         >
           <div className="font-bold text-text">{hover.state}</div>
           <div className="text-muted">
-            Score: <span className="font-semibold text-text-soft">{Math.round(values[hover.state] ?? 0)}</span>
+            {values[hover.state] !== undefined ? (
+              <>
+                Value: <span className="font-semibold text-text-soft">{Math.round(values[hover.state])}</span>
+              </>
+            ) : (
+              <span className="italic">No data for this selection</span>
+            )}
             {STATE_DONORS[hover.state]?.length ? ` · ${STATE_DONORS[hover.state].join(', ')}` : ''}
           </div>
+          <div className="mt-0.5 text-[10px] text-muted-2">Click for full profile</div>
         </div>
       )}
     </div>
