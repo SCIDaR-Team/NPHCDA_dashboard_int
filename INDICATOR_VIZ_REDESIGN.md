@@ -44,7 +44,7 @@ indicator will read once its source is connected.
 
 | Element | Current | Proposed | Reason | Status |
 |---|---|---|---|---|
-| KPI strip (6 cards: deliveries, ANC1, mCPR, PPH bundle, PPH death share, ≥4 SBAs) | KPI card + sparkline + progress ring | **KPI card + sparkline + ring (retained)** | Already the correct choice: headline value, period delta and shape-of-trend in one compact unit — the KPI-card pattern from Power BI/Looker. Redesigning it would be change for its own sake. | Implemented (retained) |
+| KPI strip (6 cards: deliveries, ANC1, mCPR, PPH bundle, PPH death share, ≥4 SBAs) | KPI card + sparkline + progress ring | **KPI card carrying the indicator's own theme-section chart** (deliveries/ANC1 → trend columns; mCPR/≥4 SBAs → donut; PPH bundle → gauge; PPH death share → cause donut) | The overview must speak the same visual language as the theme pages: each KPI card now renders the *exact* chart the indicator uses in its section, so a reader sees one consistent encoding across the app. The line sparklines are gone — no line charts remain on the Overview. Value/delta framing is kept; the redundant corner ring is dropped where the chart already embeds the number. | Implemented |
 | State map | Choropleth of state readiness / selected indicators | **Choropleth (retained)** | Geographic variation is exactly what a choropleth is for. | Implemented (retained) |
 | Programme snapshot (3 cards) | Ring progress + headline | **Ring progress (retained)** | A single normalized score per programme area; radial progress reads instantly. | Implemented (retained) |
 

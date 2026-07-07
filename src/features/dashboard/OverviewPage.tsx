@@ -24,6 +24,7 @@ export function OverviewPage() {
   const { data: kpiGroups, loading: kpiLoading } = useAsync(() => ds.getKpiGroups());
   const { data: blocks, loading: blocksLoading, error, reload } = useAsync(() => ds.getBlocks());
   const { data: stateScores } = useAsync(() => ds.getStateScores());
+  const { data: trends } = useAsync(() => ds.getTrendSeries());
 
   const filter = useFilterStore(pickFilter);
   const setFilter = useFilterStore((s) => s.set);
@@ -104,7 +105,7 @@ export function OverviewPage() {
         subtitle="Top-level outcomes, coverage and system & trust indicators. Click a state on the map to scope the dashboard (click again to clear)."
       />
 
-      <KpiStrip groups={kpiGroups} loading={kpiLoading} />
+      <KpiStrip groups={kpiGroups} loading={kpiLoading} blocks={blocks} trends={trends} />
 
       <div className="mt-6" ref={mapRef}>
         <SectionBlock

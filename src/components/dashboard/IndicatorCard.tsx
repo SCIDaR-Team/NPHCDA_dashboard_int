@@ -1,7 +1,7 @@
 import { Info, ChevronRight, Inbox, EyeOff } from 'lucide-react';
 import { Card, Badge, Tooltip } from '@/components/ui';
 import { RingProgress } from '@/components/charts/RingProgress';
-import { IndicatorViz, vizFor, isWideViz } from '@/components/dashboard/indicatorViz';
+import { IndicatorViz, vizFor, isWideViz, vizEmbedsValue } from '@/components/dashboard/indicatorViz';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import {
   effectiveIndicatorValue,
@@ -17,9 +17,6 @@ import type { Indicator, TrendSeries } from '@/data/types';
 
 const tierTone: Record<number, 'good' | 'mid' | 'neutral'> = { 1: 'good', 2: 'mid', 3: 'neutral' };
 const covLabel: Record<string, string> = { srh8: '8 SRH states', sfm: 'SFM states', lcb: '8 LCB states' };
-
-/** Viz kinds that embed the headline number inside the chart itself. */
-const EMBEDS_VALUE = new Set(['donutBinary', 'donutCause', 'donutFp', 'gauge', 'radial', 'range']);
 
 function CompositeTooltip({ infoKey }: { infoKey: string }) {
   const def = DEFINITIONS[infoKey];
@@ -54,12 +51,15 @@ export function IndicatorCard({
   onOpen,
   siblings = {},
   trends = null,
+  disableWide = false,
 }: {
   indicator: Indicator;
   onOpen: (i: Indicator) => void;
   /** All indicators on the page — cross-indicator context (funnel, pipeline, cause donuts). */
   siblings?: Record<string, Indicator>;
   trends?: TrendSeries | null;
+  /** Force single-column width even for wide charts (e.g. an even 2×2 section grid). */
+  disableWide?: boolean;
 }) {
   const filter = useFilterStore(pickFilter);
   const ind = indicator;
@@ -101,9 +101,10 @@ export function IndicatorCard({
     !ind.split4 &&
     !isGap &&
     !outOfScope &&
-    !(showViz && spec && EMBEDS_VALUE.has(spec.kind));
-  // Chart-bearing cards get more horizontal room so bars/labels aren't cramped.
-  const wide = !!ind.split4 || (showViz && isWideViz(ind.name));
+    !(showViz && vizEmbedsValue(ind.name));
+  // Chart-bearing cards get more horizontal room so bars/labels aren't cramped —
+  // unless the section pins them to an even grid (disableWide).
+  const wide = !disableWide && (!!ind.split4 || (showViz && isWideViz(ind.name)));
   // Explanations longer than roughly one line stay out of the card body — the
   // Info tooltip already carries the full text, so the card height stays uniform.
   const metaText = decodeHtml(ind.meta);
@@ -163,8 +164,9 @@ export function IndicatorCard({
         </div>
       )}
 
-      {/* Body: the indicator's selected visualization (see INDICATOR_VIZ_REDESIGN.md) */}
-      <div className="mt-3">
+      {/* Body: the indicator's selected visualization (see INDICATOR_VIZ_REDESIGN.md).
+          A fixed min-height keeps the chart band uniform so cards in a row align. */}
+      <div className="mt-3 flex min-h-[136px] flex-col justify-center">
         {ind.split4 ? (
           splitData && spec ? (
             <IndicatorViz indicator={ind} spec={spec} siblings={siblings} trends={trends} split={splitData} />

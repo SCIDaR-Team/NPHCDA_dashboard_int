@@ -1,14 +1,13 @@
 import { RingProgress } from '@/components/charts/RingProgress';
 import {
   MiniBullet,
-  MiniWaffle,
   MiniCompositionBar,
   MiniPipeline,
-  MiniRangeBar,
   MiniFunnel,
   MiniDeltaBar,
   MiniZeroBar,
-  MiniRateNote,
+  MiniKpiStat,
+  MiniRateBar,
   GhostViz,
   type CompositionSegment,
 } from '@/components/charts/mini/svgMinis';
@@ -16,11 +15,9 @@ import {
   MiniDonut,
   MiniGauge,
   MiniStateBars,
-  MiniDotPlot,
-  MiniTrendArea,
   type MiniBarRow,
 } from '@/components/charts/mini/echartsMinis';
-import { stateMeasures, heatColor, quarterLabels } from '@/data/calculations';
+import { stateMeasures, heatColor } from '@/data/calculations';
 import { HIDE_ZERO_DISTRIBUTION_INDICATORS } from '@/data/scopedEngine';
 import { decodeHtml } from '@/lib/format';
 import type { Indicator, Split4, TrendSeries } from '@/data/types';
@@ -46,22 +43,19 @@ import type { Indicator, Split4, TrendSeries } from '@/data/types';
  */
 
 export type VizKind =
-  | 'stateBarsCount' // KPI count + top-states bars (neutral colour — counts aren't graded)
+  | 'stateBarsCount' // count + per-state ranked bars (distinct colour per state)
   | 'stateBarsNaira' // ₦ amounts by state
   | 'bullet'
   | 'radial'
-  | 'waffle'
   | 'donutBinary'
   | 'donutCause'
   | 'donutFp'
   | 'gauge'
-  | 'dotPlot'
   | 'pipeline'
-  | 'trend'
+  | 'kpiStat' // large headline count + period delta (unbounded volumes)
   | 'funnel'
   | 'delta'
-  | 'range'
-  | 'rateNote'
+  | 'rateBar' // single rate on a contextual scale + benchmark tick
   | 'composition'; // 100% stacked bar (functional status live; band/stream previews ghost)
 
 export interface VizSpec {
@@ -103,7 +97,7 @@ export const VIZ_MAP: Record<string, VizSpec> = {
   'Facility functional status per state (L1 / L2 / partial / non-functional)': { kind: 'composition' },
   'Number of revitalized PHC facilities per state': { kind: 'stateBarsCount' },
   'Proportion of visited PHCs offering the full essential service package*': { kind: 'bullet' },
-  'Proportion of visited PHCs with functional maternal health equipment*': { kind: 'bullet' },
+  'Proportion of visited PHCs with functional maternal health equipment*': { kind: 'gauge' },
   'Number of SBAs recruited': { kind: 'stateBarsCount' },
   'Proportion of SBAs deployed per state': { kind: 'radial' },
   'Number of CBHWs trained': {
@@ -112,9 +106,12 @@ export const VIZ_MAP: Record<string, VizSpec> = {
     poolLabels: { part: 'Trained', total: 'Recruited' },
   },
   'Proportion of CBHWs recruited': { kind: 'stateBarsCount' },
-  'Proportion of CBHWs deployed per state': { kind: 'dotPlot' },
+  'Proportion of CBHWs deployed per state': { kind: 'gauge' },
   '% of recruited CBHWs that have been absorbed': { kind: 'bullet' }, // renders zero-emphasis at a real 0
-  'Proportion of facilities with a minimum of 4 SBAs': { kind: 'waffle' },
+  'Proportion of facilities with a minimum of 4 SBAs': {
+    kind: 'donutBinary',
+    donutLabels: ['≥ 4 SBAs', 'Below minimum'],
+  },
   'Proportion of BHCPF facilities that received their quarterly disbursement': {
     kind: 'donutBinary',
     donutLabels: ['Received', 'Not received'],
@@ -165,12 +162,11 @@ export const VIZ_MAP: Record<string, VizSpec> = {
   },
 
   /* ---------------- Service Delivery ---------------- */
-  'Number of deliveries in facilities': { kind: 'trend', trendKey: 'Facility deliveries (count)' },
+  'Number of deliveries in facilities': { kind: 'kpiStat', trendKey: 'Facility deliveries (count)' },
   'Proportion of deliveries attended by a skilled birth attendant': { kind: 'radial' },
   '% of women with a live birth who attended ANC 1': {
-    kind: 'trend',
-    trendKey: 'ANC1 coverage (%)',
-    trendIsPct: true,
+    kind: 'donutBinary',
+    donutLabels: ['Attended ANC 1', 'Did not attend'],
   },
   '% of women with a live birth who attended ANC 4': { kind: 'funnel' },
   '% of family planning clients using modern contraceptives': { kind: 'donutFp' },
@@ -179,8 +175,8 @@ export const VIZ_MAP: Record<string, VizSpec> = {
   'Proportion of children &lt;1 year who received Measles 1': { kind: 'bullet' },
   'Number of zero-dose children (burden)': { kind: 'stateBarsCount' },
   'Proportion of girls aged 9 who received the HPV vaccine dose': { kind: 'radial' },
-  'Maternal Mortality Ratio - BHCPF vs. non-BHCPF facilities': { kind: 'rateNote' },
-  'Under-5 Mortality Rate - BHCPF vs. non-BHCPF facilities': { kind: 'rateNote' },
+  'Maternal Mortality Ratio - BHCPF vs. non-BHCPF facilities': { kind: 'rateBar' },
+  'Under-5 Mortality Rate - BHCPF vs. non-BHCPF facilities': { kind: 'rateBar' },
   'Proportion of maternal deaths resulting from PPH': { kind: 'donutCause', cause: 'PPH' },
   'Proportion of maternal deaths resulting from pre-eclampsia/eclampsia': {
     kind: 'donutCause',
@@ -190,7 +186,50 @@ export const VIZ_MAP: Record<string, VizSpec> = {
 };
 
 /** Kinds whose selected chart needs the wide (2-column) card layout. */
-const WIDE_KINDS = new Set<VizKind>(['composition', 'stateBarsCount', 'stateBarsNaira', 'trend']);
+const WIDE_KINDS = new Set<VizKind>(['composition', 'stateBarsCount', 'stateBarsNaira']);
+
+/** Kinds whose chart embeds the headline number, so the card need not repeat it. */
+const EMBEDS_VALUE = new Set<VizKind>([
+  'donutBinary',
+  'donutCause',
+  'donutFp',
+  'gauge',
+  'radial',
+  'kpiStat',
+  'rateBar',
+]);
+
+/** Distinct-but-harmonious hues so each state's bar reads as its own. */
+const STATE_PALETTE = ['#3D7BB5', '#2E8B57', '#C9A227', '#C2562C', '#7A4FA8', '#2A9D8F', '#D1495B', '#5B7089'];
+
+/** Radial (saturation %) rings use a fixed brand colour, not the heat scale. */
+const RADIAL_COLOR = '#3D7BB5';
+
+/** Rate-bar context (scale + published benchmark) for the two mortality ratios. */
+const RATE_CFG: Record<
+  string,
+  { unit: string; max: number; color: string; benchmark?: number; benchmarkLabel?: string; note?: string }
+> = {
+  'Maternal Mortality Ratio - BHCPF vs. non-BHCPF facilities': {
+    unit: 'per 100,000 live births',
+    max: 260,
+    color: '#C2562C',
+    benchmark: 70,
+    benchmarkLabel: 'SDG 2030 target · 70',
+    note: 'PFMO national · facility-based, not yet split BHCPF vs. non-BHCPF.',
+  },
+  'Under-5 Mortality Rate - BHCPF vs. non-BHCPF facilities': {
+    unit: 'per 1,000 live births',
+    max: 12,
+    color: '#5B7089',
+    note: 'Institutional ratio (facility-recorded deaths ÷ live births) — not a population U5MR.',
+  },
+};
+
+export function vizEmbedsValue(name: string): boolean {
+  const spec = VIZ_MAP[name];
+  return !!spec && EMBEDS_VALUE.has(spec.kind);
+}
 
 export function vizFor(name: string): VizSpec | undefined {
   return VIZ_MAP[name];
@@ -253,14 +292,6 @@ function numberIn(display: string): number | null {
   return m ? parseFloat(m[0]) : null;
 }
 
-/** Parse an MMR range "44–340 / 100,000 …" → [lo, hi] (en-dash or hyphen). */
-function rangeIn(display: string): [number, number] | null {
-  const s = String(display).replace(/,/g, '');
-  const m = s.match(/(\d+(?:\.\d+)?)\s*[–-]\s*(\d+(?:\.\d+)?)/);
-  if (m) return [parseFloat(m[1]), parseFloat(m[2])];
-  return null;
-}
-
 const SPLIT4_SEGMENTS = (s: Split4): CompositionSegment[] => [
   { label: 'L2', pct: s.l2, color: '#2E8B57' },
   { label: 'L1', pct: s.l1, color: '#6FA888' },
@@ -314,7 +345,8 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
         <div>
           <MiniStateBars
             rows={rows}
-            neutralColor={NEUTRAL_BAR}
+            neutralColor={naira ? NEUTRAL_BAR : undefined}
+            paletteColors={naira ? undefined : STATE_PALETTE}
             highlight={highlightState}
             formatter={naira ? fmtNairaCompact : fmtCountCompact}
           />
@@ -335,27 +367,26 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
 
     case 'radial':
       return (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">
-            <RingProgress pct={ind.inverse ? 100 - ind.pct : ind.pct} size={64} />
-            <span className="absolute inset-0 flex items-center justify-center text-[12px] font-extrabold text-text">
+            <RingProgress pct={ind.inverse ? 100 - ind.pct : ind.pct} size={110} thickness={5} color={RADIAL_COLOR} />
+            <span className="absolute inset-0 flex items-center justify-center text-[23px] font-extrabold text-text">
               {round1(ind.pct)}%
             </span>
           </div>
-          <div className="text-[10.5px] leading-snug text-muted">
+          <div className="min-w-0 text-[11px] leading-snug text-muted">
             {ind.pct >= 99.5 ? (
               <>
                 <b className="text-text-soft">At ceiling.</b> Read with the source caveat in the info note.
               </>
             ) : (
-              <>of the 100% target</>
+              <>
+                of the <b className="text-text-soft">100%</b> target
+              </>
             )}
           </div>
         </div>
       );
-
-    case 'waffle':
-      return <MiniWaffle pct={ind.pct} inverse={ind.inverse} />;
 
     case 'donutBinary': {
       const [yes, no] = spec.donutLabels ?? ['Yes', 'No'];
@@ -415,19 +446,6 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
     case 'gauge':
       return <MiniGauge pct={ind.pct} />;
 
-    case 'dotPlot': {
-      const points = Object.entries(stateMeasures(ind.name))
-        .map(([label, m]) => ({ label, value: m.pct }))
-        .sort((a, b) => a.value - b.value);
-      if (!points.length) return <MiniBullet pct={ind.pct} inverse={ind.inverse} />;
-      return (
-        <div>
-          <MiniDotPlot points={points} national={ind.pct} />
-          <div className="mt-0.5 text-[10px] text-muted-2">Each dot = one state's rate; line = national.</div>
-        </div>
-      );
-    }
-
     case 'pipeline': {
       const part = numberIn(ind.value);
       const pool = spec.poolIndicator ? siblings[spec.poolIndicator] : undefined;
@@ -445,16 +463,23 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
       );
     }
 
-    case 'trend': {
+    case 'kpiStat': {
       const series = spec.trendKey && trends ? trends[spec.trendKey] : undefined;
-      if (!series || !series.some((v) => v != null)) {
-        return <MiniBullet pct={ind.pct} inverse={ind.inverse} />;
+      const vals = (series ?? []).filter((v): v is number => v != null);
+      let deltaText: string | undefined;
+      let deltaDir: 'up' | 'down' | undefined;
+      if (vals.length >= 2) {
+        const diff = vals[vals.length - 1] - vals[0];
+        const pctChange = vals[0] ? (diff / vals[0]) * 100 : 0;
+        deltaDir = diff >= 0 ? 'up' : 'down';
+        deltaText = `${diff >= 0 ? '+' : ''}${round1(pctChange)}% over the reported period`;
       }
       return (
-        <MiniTrendArea
-          data={series}
-          categories={quarterLabels}
-          formatter={spec.trendIsPct ? (v) => `${round1(v)}%` : fmtCountCompact}
+        <MiniKpiStat
+          value={decodeHtml(ind.value)}
+          sub="Latest reporting month · facility-based volume"
+          deltaText={deltaText}
+          deltaDir={deltaDir}
         />
       );
     }
@@ -478,26 +503,22 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
       return <MiniDeltaBar delta={d} />;
     }
 
-    case 'range': {
-      const r = rangeIn(ind.value);
-      if (!r) {
-        return <MiniRateNote note={`${decodeHtml(ind.value)} — interim single-source figure; see the info note.`} />;
-      }
+    case 'rateBar': {
+      const cfg = RATE_CFG[ind.name];
+      const v = numberIn(ind.value) ?? 0;
+      if (!cfg) return <MiniKpiStat value={decodeHtml(ind.value)} />;
       return (
-        <MiniRangeBar
-          lo={r[0]}
-          hi={r[1]}
-          loLabel="SRH (likely floor)"
-          hiLabel="SFM (likely ceiling)"
-          unit="per 100,000 facility deliveries"
+        <MiniRateBar
+          value={v}
+          unit={cfg.unit}
+          max={cfg.max}
+          color={cfg.color}
+          benchmark={cfg.benchmark}
+          benchmarkLabel={cfg.benchmarkLabel}
+          note={cfg.note}
         />
       );
     }
-
-    case 'rateNote':
-      return (
-        <MiniRateNote note="Facility-based rate on PFMO's national live-births denominator; deliberately ungraded and not yet split BHCPF vs. non-BHCPF. Per-state detail in the deep dive." />
-      );
 
     default:
       return null;
@@ -533,9 +554,9 @@ function GhostIndicatorViz({ indicator: ind, spec }: { indicator: Indicator; spe
         return <MiniGauge ghost />;
       case 'radial':
         return (
-          <div className="flex items-center gap-3">
-            <RingProgress pct={0} size={56} />
-            <span className="text-[10.5px] text-muted-2">Coverage % once connected</span>
+          <div className="flex items-center gap-4">
+            <RingProgress pct={0} size={110} thickness={5} color={RADIAL_COLOR} />
+            <span className="text-[11px] text-muted-2">Coverage % once connected</span>
           </div>
         );
       case 'bullet':

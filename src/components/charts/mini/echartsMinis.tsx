@@ -207,6 +207,9 @@ export function MiniStateBars({
   neutralColor,
   highlight,
   formatter = (v) => v.toLocaleString('en-US'),
+  reference,
+  referenceLabel,
+  paletteColors,
   ghost,
   ghostLabels,
 }: {
@@ -216,19 +219,24 @@ export function MiniStateBars({
   neutralColor?: string;
   highlight?: string;
   formatter?: (v: number) => string;
+  /** Optional vertical reference line on the value axis (e.g. national mean). */
+  reference?: number;
+  referenceLabel?: string;
+  /** Give each bar a distinct categorical colour (cycled) instead of one colour. */
+  paletteColors?: string[];
   ghost?: boolean;
   ghostLabels?: string[];
 }) {
   const theme = useChartTheme();
   const shown = ghost ? [] : rows;
   const labels = ghost ? ghostLabels ?? ['—', '—', '—', '—'] : shown.map((r) => r.label);
-  const height = Math.max(labels.length * 24 + 10, 82);
+  const height = Math.max(labels.length * 26 + 12, 88);
 
   const option = useMemo<EChartsOption>(() => {
     const values = ghost ? (ghostLabels ?? ['—', '—', '—', '—']).map((_, i) => 80 - i * 18) : shown.map((r) => r.magnitude);
-    const max = Math.max(...values, 1);
+    const max = Math.max(...values, reference ?? 0, 1);
     return {
-      grid: { left: 2, right: 44, top: 2, bottom: 2, containLabel: true },
+      grid: { left: 2, right: 46, top: 6, bottom: 2, containLabel: true },
       tooltip: ghost
         ? { show: false }
         : {
@@ -264,8 +272,10 @@ export function MiniStateBars({
             itemStyle: {
               color: ghost
                 ? GHOST
-                : neutralColor ??
-                  (inverse ? heatColor(100 - shown[i].pct) : heatColor(shown[i].pct)),
+                : paletteColors
+                  ? paletteColors[i % paletteColors.length]
+                  : neutralColor ??
+                    (inverse ? heatColor(100 - shown[i].pct) : heatColor(shown[i].pct)),
               opacity: !ghost && highlight && shown[i].label !== highlight ? 0.35 : 1,
               borderRadius: [0, 3, 3, 0],
             },
@@ -280,10 +290,26 @@ export function MiniStateBars({
                 fontSize: 10,
                 formatter: (p: any) => formatter(shown[p.dataIndex].magnitude),
               },
+          markLine:
+            !ghost && reference != null
+              ? {
+                  silent: true,
+                  symbol: 'none',
+                  lineStyle: { color: theme.text, width: 1.5, type: 'dashed', opacity: 0.55 },
+                  label: {
+                    formatter: referenceLabel ?? `${Math.round(reference * 10) / 10}`,
+                    color: theme.muted,
+                    fontFamily: CHART_FONT,
+                    fontSize: 9.5,
+                    position: 'insideEndTop',
+                  },
+                  data: [{ xAxis: reference }],
+                }
+              : undefined,
         },
       ],
     };
-  }, [shown, labels, inverse, neutralColor, highlight, formatter, ghost, ghostLabels, theme]);
+  }, [shown, labels, inverse, neutralColor, highlight, formatter, reference, referenceLabel, paletteColors, ghost, ghostLabels, theme]);
 
   return <EChart option={option} height={height} />;
 }
@@ -351,38 +377,43 @@ export function MiniDotPlot({
 }
 
 /* ------------------------------------------------------------------ *
- * Trend area: real quarterly series from the ETL snapshot (gaps stay gaps).
+ * Trend columns: real period series from the ETL snapshot as vertical bars
+ * (gaps stay gaps). A column chart reads discrete period volumes/rates better
+ * than a line and keeps the dashboard line-free per the redesign brief.
  * ------------------------------------------------------------------ */
-export function MiniTrendArea({
+export function MiniTrendBars({
   data,
   categories,
-  color = '#2E8B57',
+  color = '#3D7BB5',
   formatter = (v) => v.toLocaleString('en-US'),
+  height = 132,
 }: {
   data: (number | null)[];
   categories: string[];
   color?: string;
   formatter?: (v: number) => string;
+  height?: number;
 }) {
   const theme = useChartTheme();
-  // Trim leading/trailing all-null quarters so the visible window is the covered period.
+  // Trim leading/trailing all-null periods so the visible window is the covered period.
   const first = data.findIndex((v) => v != null);
   const lastIdx = data.length - 1 - [...data].reverse().findIndex((v) => v != null);
   const window = first === -1 ? [] : data.slice(first, lastIdx + 1);
   const cats = first === -1 ? [] : categories.slice(first, lastIdx + 1);
+  const lastPos = window.length - 1 - [...window].reverse().findIndex((v) => v != null);
 
   const option = useMemo<EChartsOption>(() => {
     return {
-      grid: { left: 4, right: 8, top: 8, bottom: 2, containLabel: true },
+      grid: { left: 4, right: 10, top: 12, bottom: 2, containLabel: true },
       tooltip: {
         ...baseTooltip(theme),
         trigger: 'axis',
+        axisPointer: { type: 'shadow' },
         valueFormatter: (v) => (v == null ? '—' : formatter(Number(v))),
       },
       xAxis: {
         type: 'category',
         data: cats,
-        boundaryGap: false,
         axisLabel: {
           color: theme.muted,
           fontFamily: CHART_FONT,
@@ -394,7 +425,7 @@ export function MiniTrendArea({
       },
       yAxis: {
         type: 'value',
-        scale: true,
+        scale: false,
         axisLabel: {
           color: theme.muted,
           fontFamily: CHART_FONT,
@@ -406,14 +437,17 @@ export function MiniTrendArea({
       },
       series: [
         {
-          type: 'line',
-          data: window,
-          smooth: true,
-          showSymbol: false,
-          connectNulls: false,
-          lineStyle: { width: 2, color },
-          itemStyle: { color },
-          areaStyle: { opacity: 0.14, color },
+          type: 'bar',
+          data: window.map((value, i) => ({
+            value,
+            // The latest period is emphasised; earlier periods are muted context.
+            itemStyle: {
+              color,
+              opacity: i === lastPos ? 1 : 0.45,
+              borderRadius: [3, 3, 0, 0],
+            },
+          })),
+          barMaxWidth: 26,
         },
       ],
     };
@@ -421,5 +455,5 @@ export function MiniTrendArea({
   }, [data, categories, color, formatter, theme]);
 
   if (!window.length) return null;
-  return <EChart option={option} height={104} />;
+  return <EChart option={option} height={height} />;
 }

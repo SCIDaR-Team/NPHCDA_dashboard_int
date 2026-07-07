@@ -70,9 +70,14 @@ export function BlockPage({ block }: { block: BlockName }) {
           const cards = names.map((n) => indByName[n]).filter(Boolean);
           if (!cards.length) return null;
           const isGap = /gap/i.test(title);
+          // This section is laid out as an even 2×2 grid (two charts per row).
+          const twoUp = /functionality\s*&(amp;)?\s*infrastructure/i.test(title);
+          const gridClass = twoUp
+            ? 'grid gap-4 sm:grid-cols-2'
+            : 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3';
           return (
             <SectionBlock key={title} title={decodeHtml(title)} tone={isGap ? 'warning' : 'brand'}>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={gridClass}>
                 {cards.map((ind) => (
                   <IndicatorCard
                     key={ind.name}
@@ -80,6 +85,7 @@ export function BlockPage({ block }: { block: BlockName }) {
                     onOpen={setModalInd}
                     siblings={indByName}
                     trends={trends}
+                    disableWide={twoUp}
                   />
                 ))}
               </div>

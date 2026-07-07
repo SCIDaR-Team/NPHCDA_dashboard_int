@@ -313,6 +313,91 @@ export function MiniZeroBar({ annotation }: { annotation: string }) {
 }
 
 /* ------------------------------------------------------------------ *
+ * KPI stat: a large headline count with an optional period delta + caption.
+ * Used for unbounded volumes (facility deliveries) where the story is the
+ * magnitude itself, not a proportion.
+ * ------------------------------------------------------------------ */
+export function MiniKpiStat({
+  value,
+  sub,
+  deltaText,
+  deltaDir,
+}: {
+  value: string;
+  sub?: string;
+  deltaText?: string;
+  deltaDir?: 'up' | 'down';
+}) {
+  const up = deltaDir !== 'down';
+  return (
+    <div className="flex flex-col justify-center">
+      <div className="text-[34px] font-extrabold leading-none text-text">{value}</div>
+      {deltaText && (
+        <div className={`mt-2 flex items-center gap-1 text-xs font-bold ${up ? 'text-brand-bright' : 'text-danger'}`}>
+          <span>{up ? '▲' : '▼'}</span>
+          {deltaText}
+        </div>
+      )}
+      {sub && <div className="mt-1.5 text-[11px] leading-snug text-muted">{sub}</div>}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Rate bar: a single rate (e.g. mortality per 100k) on a contextual scale,
+ * with an optional published benchmark tick. Uses only the real reported rate.
+ * ------------------------------------------------------------------ */
+export function MiniRateBar({
+  value,
+  unit,
+  max,
+  color,
+  benchmark,
+  benchmarkLabel,
+  note,
+}: {
+  value: number;
+  unit: string;
+  max: number;
+  color: string;
+  benchmark?: number;
+  benchmarkLabel?: string;
+  note?: string;
+}) {
+  const x = (n: number) => Math.min(100, Math.max(0, (n / max) * 100));
+  return (
+    <div>
+      <div className="flex items-end gap-2">
+        <span className="text-[30px] font-extrabold leading-none text-text">{value.toLocaleString('en-US')}</span>
+        <span className="mb-0.5 text-[11px] leading-snug text-muted">{unit}</span>
+      </div>
+      <div className="relative mt-5 h-3 w-full rounded-full bg-bg-elev-3">
+        <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${x(value)}%`, background: color }} />
+        {benchmark != null && (
+          <>
+            <div
+              className="absolute -top-4 -translate-x-1/2 whitespace-nowrap text-[9px] font-semibold text-muted"
+              style={{ left: `${x(benchmark)}%` }}
+            >
+              {benchmarkLabel}
+            </div>
+            <div
+              className="absolute -top-1 h-5 w-[2px] -translate-x-1/2 rounded bg-text/70"
+              style={{ left: `${x(benchmark)}%` }}
+            />
+          </>
+        )}
+      </div>
+      <div className="mt-1.5 flex justify-between text-[9.5px] text-muted-2">
+        <span>0</span>
+        <span>{max.toLocaleString('en-US')}</span>
+      </div>
+      {note && <div className="mt-1.5 text-[10px] leading-snug text-muted-2">{note}</div>}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
  * Ungraded rate stat: deliberately chart-free (small-n interim rates).
  * ------------------------------------------------------------------ */
 export function MiniRateNote({ note }: { note: string }) {

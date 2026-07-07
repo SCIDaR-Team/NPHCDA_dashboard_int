@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { STATE_PATHS, STATE_CENTROIDS, STATE_DONORS, MAP_VBW, MAP_VBH } from '@/data/geo/states';
 import { heatColor } from '@/data/calculations';
 
+/** Short labels for the longer names so the crowded southern cluster stays legible. */
+const STATE_LABELS: Record<string, string> = {
+  'Akwa Ibom': 'A. Ibom',
+  'Cross River': 'C. River',
+  Nasarawa: 'Nasar.',
+};
+
 interface NigeriaMapProps {
   /** 0–100 performance value per state (drives fill colour). */
   values: Record<string, number>;
@@ -36,11 +43,11 @@ export function NigeriaMap({ values, selected, highlight, onStateClick }: Nigeri
   const [hover, setHover] = useState<{ state: string; x: number; y: number } | null>(null);
 
   return (
-    <div className="relative w-full">
+    <div className="relative mx-auto w-full" style={{ maxWidth: 560 }}>
       <svg
         viewBox={`0 0 ${MAP_VBW} ${MAP_VBH}`}
         className="h-auto w-full"
-        style={{ maxHeight: 520 }}
+        style={{ maxHeight: 400 }}
         role="img"
         aria-label="Nigeria states performance map"
       >
@@ -71,14 +78,36 @@ export function NigeriaMap({ values, selected, highlight, onStateClick }: Nigeri
           );
         })}
 
-        {/* Donor markers */}
+        {/* Donor markers — nudged above the centroid so the state label stays clear. */}
         {Object.entries(STATE_DONORS).map(([state, donors]) => {
           const c = STATE_CENTROIDS[state];
           if (!c) return null;
           return donors.map((donor, i) => (
-            <DonorMarker key={state + donor} cx={c[0] + (i - (donors.length - 1) / 2) * 9} cy={c[1]} donor={donor} />
+            <DonorMarker key={state + donor} cx={c[0] + (i - (donors.length - 1) / 2) * 9} cy={c[1] - 10} donor={donor} />
           ));
         })}
+
+        {/* State name labels — dark text with a white halo so they stay legible on any fill. */}
+        {Object.entries(STATE_CENTROIDS).map(([state, [cx, cy]]) => (
+          <text
+            key={`lbl-${state}`}
+            x={cx}
+            y={cy + 3}
+            textAnchor="middle"
+            fontSize={11}
+            fontWeight={600}
+            fill="#10203A"
+            pointerEvents="none"
+            style={{
+              paintOrder: 'stroke',
+              stroke: 'rgba(255,255,255,0.9)',
+              strokeWidth: 2.4,
+              strokeLinejoin: 'round',
+            }}
+          >
+            {STATE_LABELS[state] ?? state}
+          </text>
+        ))}
       </svg>
 
       {hover && (
