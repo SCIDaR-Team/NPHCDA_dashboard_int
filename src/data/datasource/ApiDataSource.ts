@@ -22,7 +22,6 @@ import type {
  *   GET {baseUrl}/definitions     -> Record<string,CompositeDefinition>
  *   GET {baseUrl}/trends          -> TrendSeries
  *   GET {baseUrl}/facilities      -> FacilityRow[]
- *   GET {baseUrl}/state-scores    -> Record<string,number>
  *   GET {baseUrl}/state-donors    -> Record<string,string[]>
  *
  * Crucially, the *indicator names* returned must match the catalogue in
@@ -69,9 +68,6 @@ export class ApiDataSource implements DataSource {
   }
   getFacilities() {
     return this.get<FacilityRow[]>('/facilities');
-  }
-  getStateScores() {
-    return this.get<Record<string, number>>('/state-scores');
   }
   getStateDonors() {
     return this.get<Record<string, string[]>>('/state-donors');

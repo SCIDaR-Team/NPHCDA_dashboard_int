@@ -501,12 +501,13 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
     }
 
     case 'kpiStat': {
-      // Scoped: the national monthly trend no longer applies — show the scoped total.
-      if (scoped) {
-        return <MiniKpiStat value={decodeHtml(ind.value)} unit="deliveries · current scope" />;
-      }
+      // `trends` is the scoped series under a filter (see IndicatorCard / KpiStrip), so
+      // the sparkline + delta rescope with the headline value. A scope with no delivery
+      // history falls back to the plain stat.
       const series = spec.trendKey && trends ? trends[spec.trendKey] : undefined;
       const vals = (series ?? []).filter((v): v is number => v != null);
+      const unit = scoped ? 'deliveries · current scope' : 'deliveries · latest month';
+      if (!vals.length) return <MiniKpiStat value={decodeHtml(ind.value)} unit={unit} />;
       const recent = vals.slice(-6);
       // The latest month is often still reporting — flag it so it isn't misread
       // as a real collapse, and compute the trend delta over completed months only.
@@ -524,7 +525,7 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
       return (
         <MiniKpiStat
           value={decodeHtml(ind.value)}
-          unit="deliveries · latest month"
+          unit={unit}
           sub={partialLast ? 'Bars: recent monthly volume — final month still reporting.' : 'Bars: recent monthly volume.'}
           deltaText={deltaText}
           deltaDir={deltaDir}

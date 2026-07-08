@@ -12,7 +12,7 @@
  * app calls this same function, just over fewer records. Anything a scope can't
  * compute is simply omitted (put() skips null pct) → the UI renders "No data".
  */
-import { ratioPct, clampPct, round, MONTH_LABELS } from './util.mjs';
+import { ratioPct, clampPct, round, MONTH_LABELS, completeMonthSet } from './util.mjs';
 
 const sum = (arr, f) => arr.reduce((a, r) => a + f(r), 0);
 const pctStr = (p) => `${round(p)}%`;
@@ -429,10 +429,13 @@ export function buildIndicators(srh, sfm, sheet, mamii = { records: [] }, pfmo =
     );
   }
 
-  // #71 % increase in FP utilization — fp_total, baseline (earliest) vs current
-  // (latest) monthly value. Monthly comparison avoids the incomplete-quarter bias.
+  // #71 % increase in FP utilization — fp_total, baseline (earliest COMPLETE month)
+  // vs current (latest COMPLETE month). completeMonthSet drops the in-progress tail
+  // month (e.g. a 1-facility partial month), whose near-zero total otherwise reads as
+  // a spurious ~-100% collapse rather than real change.
   const fpByMonthTotal = byMonth(all, (rows) => sum(rows, (r) => r.fpTotal));
-  const fpMonths = MONTH_LABELS.filter((m) => fpByMonthTotal[m] > 0);
+  const fpComplete = completeMonthSet(all);
+  const fpMonths = MONTH_LABELS.filter((m) => fpByMonthTotal[m] > 0 && fpComplete.has(m));
   if (fpMonths.length >= 2) {
     const base = fpByMonthTotal[fpMonths[0]];
     const cur = fpByMonthTotal[fpMonths[fpMonths.length - 1]];

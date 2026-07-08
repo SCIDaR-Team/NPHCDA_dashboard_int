@@ -143,3 +143,71 @@ export function toMonthLabel(year, month) {
 export function alignToMonthFrame(byMonth) {
   return MONTH_LABELS.map((label) => (byMonth[label] == null ? null : round(byMonth[label], 2)));
 }
+
+/** Parse a "May 2026" label to a sortable YYYYMM integer, or null. */
+export function monthLabelKey(label) {
+  const [mon, yr] = String(label ?? '').split(' ');
+  const i = MONTH_SHORT.indexOf(mon);
+  return i >= 0 && yr ? Number(yr) * 100 + (i + 1) : null;
+}
+
+/** True when a reporting (year, month#) is AFTER the current calendar month — a
+ *  data-entry typo (e.g. a report stamped "May 2027" that was actually submitted in
+ *  2026). Such periods are dropped so they can't pollute the period range or trends. */
+export function isFutureReport(year, month, now = new Date()) {
+  const y = num(year);
+  const m = monthNum(month);
+  if (!y || !m) return false;
+  return y * 100 + m > (now.getFullYear() * 100 + (now.getMonth() + 1));
+}
+
+/** Distinct-facility count per reporting month (keyed state|lga|facility). */
+export function facilityCountByMonth(records) {
+  const byMonth = {};
+  for (const r of records) {
+    if (!r.month) continue;
+    (byMonth[r.month] ||= new Set()).add(`${r.state}|${r.lga}|${r.facility}`);
+  }
+  const out = {};
+  for (const [m, set] of Object.entries(byMonth)) out[m] = set.size;
+  return out;
+}
+
+const medianOf = (arr) => {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+};
+
+/**
+ * The set of "complete" reporting months for a source — every month EXCEPT the
+ * incomplete ENDS: a leading pilot/ramp-up month or a trailing in-progress/typo'd
+ * month, both identified by a reporting-facility count far below the adjacent norm
+ * (< `minFrac` of the median of the neighbouring `window` months). The walk stops at
+ * the first complete month from each end, so it trims ONLY the sparse ends and never a
+ * legitimate interior month where the panel was simply smaller — adapting to any scope
+ * (national or a single filtered state). Used to pin trends, the KPI "over period"
+ * deltas, and #71 to complete months instead of a 1-facility partial month.
+ */
+export function completeMonthSet(records, { minFrac = 0.5, window = 3 } = {}) {
+  const counts = facilityCountByMonth(records);
+  const months = Object.keys(counts).sort((a, b) => (monthLabelKey(a) ?? 0) - (monthLabelKey(b) ?? 0));
+  const keep = new Set(months);
+  // Trailing: walk back from the latest month while it's far below the prior norm.
+  for (let i = months.length - 1; i >= 0; i--) {
+    const prior = months.slice(Math.max(0, i - window), i).map((m) => counts[m]);
+    if (!prior.length) break;
+    if (counts[months[i]] < minFrac * medianOf(prior)) keep.delete(months[i]);
+    else break;
+  }
+  // Leading: walk forward from the earliest month while it's far below the next norm.
+  for (let i = 0; i < months.length; i++) {
+    if (!keep.has(months[i])) continue; // already trimmed from the tail (tiny series)
+    const next = months.slice(i + 1, i + 1 + window).map((m) => counts[m]);
+    if (!next.length) break;
+    if (counts[months[i]] < minFrac * medianOf(next)) keep.delete(months[i]);
+    else break;
+  }
+  return keep;
+}

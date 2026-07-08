@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Info, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, ErrorState, Card, Skeleton } from '@/components/ui';
@@ -17,7 +17,7 @@ import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { ALL_STATES, STATE_DONORS, ZONE_OF_STATE } from '@/data/geo/states';
 import { BLOCK_ROUTES } from '@/app/navigation';
-import { effectiveIndicatorValue, goodnessFor, stateMeasures, coverageNote } from '@/data/calculations';
+import { effectiveIndicatorValue, goodnessFor, stateMeasures } from '@/data/calculations';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { Indicator, BlockName, Blocks } from '@/data/types';
 
@@ -125,48 +125,15 @@ export function OverviewPage() {
             </div>
           }
         >
-          <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
-            <div>
-              <NigeriaMap
-                values={mapValues}
-                selected={filter.state}
-                highlight={highlight}
-                onStateClick={setProfileState}
-              />
-              <div className="mt-3">
-                <MapLegend />
-              </div>
-            </div>
-            <div className="flex flex-col gap-3">
-              <div className="rounded-lg border border-border bg-bg-elev-2 p-3 text-xs leading-relaxed text-muted">
-                {activeInd ? (
-                  <>
-                    Showing <b className="text-text-soft">{cleanName(activeInd.name)}</b> (real per-state values;
-                    states with no measurement are greyed out).
-                    {coverageNote(activeInd) && (
-                      <span className="mt-1 block text-warning">{coverageNote(activeInd)}</span>
-                    )}
-                  </>
-                ) : (
-                  <>Coloured by composite PHC performance. Pick an indicator above to recolour the map.</>
-                )}
-                {highlight && (
-                  <span className="mt-2 block border-t border-border-soft pt-2 text-text-soft">
-                    <b className="text-brand-bright">Filter active</b> — highlighted state{highlight.length > 1 ? 's' : ''} ({highlight.length}):{' '}
-                    {highlight.join(', ') || 'none'}.
-                  </span>
-                )}
-                <span className="mt-2 block text-muted-2">
-                  Click any state for its full cross-block profile. Use the Filters panel to scope the dashboard.
-                </span>
-              </div>
-              <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs leading-relaxed text-warning">
-                <Info size={15} className="mt-0.5 flex-shrink-0" />
-                <span>
-                  <b>Scope note:</b> donor markers reflect the SRH/MNH donor map only. State-level donor
-                  spend (₦) is a separate, still-open data gap.
-                </span>
-              </div>
+          <div>
+            <NigeriaMap
+              values={mapValues}
+              selected={filter.state}
+              highlight={highlight}
+              onStateClick={setProfileState}
+            />
+            <div className="mt-3">
+              <MapLegend />
             </div>
           </div>
         </SectionBlock>

@@ -2,7 +2,9 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, Skeleton, Badge } from '@/components/ui';
 import { IndicatorViz, vizFor, vizEmbedsValue } from '@/components/dashboard/indicatorViz';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
-import { scopedKpiValue, scopeLabel, statusFor, looksLikePercent, scopedSiblings } from '@/data/calculations';
+import { useSnapshotStore } from '@/store/snapshotStore';
+import { scopedKpiValue, scopeLabel, statusFor, looksLikePercent, scopedSiblings, trendDelta, trendScopeActive } from '@/data/calculations';
+import { scopedTrends } from '@/data/scopedEngine';
 import { decodeHtml } from '@/lib/format';
 import type { KpiGroup, Indicator, Blocks, TrendSeries } from '@/data/types';
 
@@ -19,6 +21,7 @@ export function KpiStrip({
   trends?: TrendSeries | null;
 }) {
   const filter = useFilterStore(pickFilter);
+  const facts = useSnapshotStore((s) => s.facts);
   const scope = scopeLabel(filter);
   const scopeActive = !!(
     filter.state ||
@@ -31,6 +34,12 @@ export function KpiStrip({
     filter.year ||
     filter.month
   );
+
+  // Under a geography/type/donor scope the sparkline + "over period" delta recompute
+  // over the filter-scoped trend (period filters don't apply to a time series); else
+  // the national series baked into the snapshot.
+  const trendScoped = trendScopeActive(filter);
+  const effTrends: TrendSeries | null = trendScoped && facts ? scopedTrends(filter) : trends ?? null;
 
   const byName: Record<string, Indicator> = {};
   if (blocks) Object.values(blocks).forEach((list) => list.forEach((i) => (byName[i.name] = i)));
@@ -63,7 +72,13 @@ export function KpiStrip({
           <div className="grid gap-4">
             {grp.cards.map((card) => {
               const scoped = scopedKpiValue(card, filter);
-              const up = card.dir === 'up';
+              // Rescope the "over period" delta to the filtered trend when a geo scope
+              // is active and this card is trend-backed; else the baked national delta.
+              const eff =
+                trendScoped && card.trendKey
+                  ? trendDelta(effTrends?.[card.trendKey], card.trendIsPct)
+                  : { delta: card.delta, dir: card.dir };
+              const up = eff.dir === 'up';
               const ind = card.indicator ? byName[card.indicator] : undefined;
               const spec = card.indicator ? vizFor(card.indicator) : undefined;
 
@@ -107,7 +122,7 @@ export function KpiStrip({
                       }`}
                     >
                       {up ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-                      {card.delta}
+                      {eff.delta}
                     </div>
                   )}
                   <div className="mt-0.5 text-[11px] text-muted">{decodeHtml(card.target)}</div>
@@ -125,7 +140,7 @@ export function KpiStrip({
                         indicator={vizInd!}
                         spec={spec!}
                         siblings={vizSiblings}
-                        trends={trends ?? null}
+                        trends={effTrends}
                         scoped={scopeActive}
                         highlightState={filter.state || undefined}
                       />

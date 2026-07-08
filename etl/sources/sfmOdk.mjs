@@ -4,7 +4,7 @@
  * anc / drugs_supply. Reduced to the latest submission per facility.
  */
 import { fetchAllOData } from '../lib/odata.mjs';
-import { dig, num, numPos, toQuarter, toMonthLabel } from '../lib/util.mjs';
+import { dig, num, numPos, toQuarter, toMonthLabel, isFutureReport } from '../lib/util.mjs';
 import { normState, titleCase, cleanName, zoneForState, donorsForState } from '../lib/states.mjs';
 
 const SERVICE_URL =
@@ -31,6 +31,8 @@ function reportingPeriod(row) {
   if (!raw) return { quarter: null, month: null };
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return { quarter: null, month: null };
+  // Drop future-dated reporting typos so they can't pollute the period range or trends.
+  if (isFutureReport(d.getFullYear(), d.getMonth() + 1)) return { quarter: null, month: null };
   return {
     quarter: toQuarter(d.getFullYear(), d.getMonth() + 1),
     month: toMonthLabel(d.getFullYear(), d.getMonth() + 1),

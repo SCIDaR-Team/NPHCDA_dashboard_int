@@ -52,7 +52,6 @@ interface Snapshot {
   facts?: SnapshotFacts;
   kpis: KpiGroup[];
   trends: TrendSeries;
-  stateScores: Record<string, number>;
   facilities: FacilityRow[];
 }
 
@@ -124,11 +123,6 @@ export class SnapshotDataSource implements DataSource {
   async getFacilities(): Promise<FacilityRow[]> {
     const snap = await this.load();
     return snap?.facilities ?? [];
-  }
-
-  async getStateScores(): Promise<Record<string, number>> {
-    const snap = await this.load();
-    return snap?.stateScores ?? {};
   }
 
   // Structural / reference data has no live source — served from the catalogue.

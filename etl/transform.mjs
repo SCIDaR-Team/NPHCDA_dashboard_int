@@ -10,10 +10,9 @@
  * filtering. This file additionally emits a compact `facts` table (the slim
  * per-source records) that the app re-aggregates through that shared engine.
  */
-import { ratioPct, clampPct, round, alignToMonthFrame } from './lib/util.mjs';
+import { round } from './lib/util.mjs';
 import { buildIndicators, mamiiFunctionalSplit } from './lib/indicators.mjs';
-
-const sum = (arr, f) => arr.reduce((a, r) => a + f(r), 0);
+import { buildTrends } from './lib/trends.mjs';
 
 /* ------------------------------------------------------------------ *
  * Real KPI strip, computed from live data.
@@ -51,10 +50,12 @@ function buildKpis(ind, trends) {
       group: 'Service delivery (SRH live data)',
       cards: [
         {
-          label: 'Facility deliveries (latest month)',
+          label: 'Facility deliveries (reported)',
           indicator: 'Number of deliveries in facilities',
           value: val('Number of deliveries in facilities'),
           ...deltaOf(deliverTrend),
+          trendKey: 'Facility deliveries (count)',
+          trendIsPct: false,
           target: 'Rising utilization of facility-based care',
           spark: sparkOf(deliverTrend),
           pct: pct('Number of deliveries in facilities', 60),
@@ -65,6 +66,8 @@ function buildKpis(ind, trends) {
           indicator: '% of women with a live birth who attended ANC 1',
           value: val('% of women with a live birth who attended ANC 1'),
           ...deltaOf(anc1Trend, { pts: true }),
+          trendKey: 'ANC1 coverage (%)',
+          trendIsPct: true,
           target: 'Entry point into the antenatal pathway',
           spark: sparkOf(anc1Trend),
           ring: pct('% of women with a live birth who attended ANC 1'),
@@ -81,6 +84,8 @@ function buildKpis(ind, trends) {
           indicator: '% of family planning clients using modern contraceptives',
           value: val('% of family planning clients using modern contraceptives'),
           ...deltaOf(fpTrend, { pts: true }),
+          trendKey: 'Modern contraceptive use (%)',
+          trendIsPct: true,
           target: 'Core measure of FP coverage',
           spark: sparkOf(fpTrend),
           ring: pct('% of family planning clients using modern contraceptives'),
@@ -92,6 +97,8 @@ function buildKpis(ind, trends) {
           indicator: 'Proportion of facilities with the PPH bundle available*',
           value: val('Proportion of facilities with the PPH bundle available*'),
           ...deltaOf(pphAvailTrend, { pts: true }),
+          trendKey: 'PPH bundle availability (%)',
+          trendIsPct: true,
           target: 'Critical for preventing maternal deaths',
           spark: sparkOf(pphAvailTrend),
           ring: pct('Proportion of facilities with the PPH bundle available*'),
@@ -130,107 +137,6 @@ function buildKpis(ind, trends) {
       ],
     },
   ];
-}
-
-/* ------------------------------------------------------------------ *
- * Real MONTHLY trends (honest gaps: null where a month has no data).
- * Deliveries use the SFM panel (May 2025 → May 2026, ~13 months); the SRH-native
- * rates use SRH (Jan → May 2026). Series names carry "(count)" or "(%)" so the UI
- * can roll them up correctly (sum vs mean) to quarterly/yearly.
- * ------------------------------------------------------------------ */
-function byMonth(records, aggFn) {
-  const groups = {};
-  for (const r of records) {
-    if (!r.month) continue;
-    (groups[r.month] ||= []).push(r);
-  }
-  const out = {};
-  for (const [m, rows] of Object.entries(groups)) out[m] = aggFn(rows);
-  return out;
-}
-
-function buildTrends(srh, sfm, pfmo) {
-  const s = srh.allRecords;
-  const anc1 = byMonth(s, (rows) => {
-    const lbv = sum(rows, (r) => r.livebirths);
-    return ratioPct(lbv - sum(rows, (r) => r.lb0), lbv);
-  });
-  const anc4 = byMonth(s, (rows) => ratioPct(sum(rows, (r) => r.lb5_7 + r.lb8plus), sum(rows, (r) => r.livebirths)));
-  const fp = byMonth(s, (rows) => ratioPct(sum(rows, (r) => r.fpModernUnits), sum(rows, (r) => r.fpTotal)));
-  const pphAvail = byMonth(s, (rows) => ratioPct(rows.filter((r) => r.pphBundleAvailable).length, rows.length));
-  // Facility deliveries — SFM panel, which carries the deep (~13-month) history.
-  // Skip near-empty pilot months (< 20 facilities) so the series isn't distorted.
-  const deliveries = byMonth(sfm.allRecords, (rows) =>
-    rows.length >= 20 ? sum(rows, (r) => r.deliveries) : null
-  );
-
-  return {
-    'Facility deliveries (count)': alignToMonthFrame(deliveries),
-    'ANC1 coverage (%)': alignToMonthFrame(anc1),
-    'ANC4 coverage (%)': alignToMonthFrame(anc4),
-    'Modern contraceptive use (%)': alignToMonthFrame(fp),
-    'PPH bundle availability (%)': alignToMonthFrame(pphAvail),
-    ...buildPfmoTrends(pfmo),
-  };
-}
-
-/* ------------------------------------------------------------------ *
- * PFMO national MONTHLY trends. PFMO's reporting volume swings widely month to
- * month (a few thousand → ~28k facilities), so raw COUNT sums are NOT comparable
- * across months. The death / immunisation signals are therefore trended as
- * volume-robust RATES — the SAME math as indicators #58 (MMR), #59 (U5MR) and
- * #87 (Penta3 completion) — which normalise for how many facilities reported.
- * Live births is kept as the one raw count (it doubles as a reporting-coverage
- * signal). A per-month reporting-facility floor gaps any partial month so it can't
- * distort the tail (the 42-month frame already drops the current in-progress month).
- * ------------------------------------------------------------------ */
-const PFMO_MIN_FACILITIES = 500;
-function buildPfmoTrends(pfmo) {
-  const recs = pfmo.allRecords || pfmo.records || [];
-  // Only plot a month once enough facilities have reported it.
-  const guarded = (fn) => (rows) => (rows.length >= PFMO_MIN_FACILITIES ? fn(rows) : null);
-  const rate = (rows, numFn, per) => {
-    const lb = sum(rows, (r) => r.livebirths);
-    return lb ? (sum(rows, numFn) / lb) * per : null;
-  };
-
-  const penta = byMonth(recs, guarded((rows) => ratioPct(sum(rows, (r) => r.penta3), sum(rows, (r) => r.penta1))));
-  const mmr = byMonth(recs, guarded((rows) => rate(rows, (r) => r.maternalDeaths, 100000)));
-  const u5mr = byMonth(recs, guarded((rows) => rate(rows, (r) => r.under5Deaths, 1000)));
-  const births = byMonth(recs, guarded((rows) => sum(rows, (r) => r.livebirths)));
-
-  return {
-    'Penta 3 completion (%)': alignToMonthFrame(penta),
-    'Maternal mortality ratio (per 100k)': alignToMonthFrame(mmr),
-    'Under-5 mortality (per 1k)': alignToMonthFrame(u5mr),
-    'Live births (count)': alignToMonthFrame(births),
-  };
-}
-
-/* ------------------------------------------------------------------ *
- * State readiness scores (real) for the choropleth map.
- * ------------------------------------------------------------------ */
-function buildStateScores(srh, sfm) {
-  const byState = {};
-  const push = (st, metric) => {
-    if (st == null || metric == null) return;
-    (byState[st] ||= []).push(clampPct(metric));
-  };
-  for (const r of srh.records) {
-    const lb = r.livebirths;
-    push(r.state, lb ? ((lb - r.lb0) / lb) * 100 : null); // ANC1
-    push(r.state, r.pphBundleAvailable ? 100 : 0); // commodity readiness
-    push(r.state, r.sbaCount >= 4 ? 100 : 0); // staffing
-  }
-  for (const r of sfm.records) {
-    push(r.state, r.pphBundleAvailable ? 100 : 0);
-    push(r.state, r.minFourSbas ? 100 : 0);
-  }
-  const out = {};
-  for (const [st, arr] of Object.entries(byState)) {
-    out[st] = round(arr.reduce((a, b) => a + b, 0) / arr.length);
-  }
-  return out;
 }
 
 /* ------------------------------------------------------------------ *
@@ -378,11 +284,10 @@ function buildFunctionalStatus(mamii) {
 export function transform({ srh, sfm, sheet, mamii = { records: [] }, pfmo = { records: [], allRecords: [] } }) {
   const indicators = buildIndicators(srh, sfm, sheet, mamii, pfmo);
   const facts = buildFacts(srh, sfm, sheet, mamii, pfmo);
-  const trends = buildTrends(srh, sfm, pfmo);
+  const trends = buildTrends(srh.allRecords || srh.records, sfm.allRecords || sfm.records, pfmo.allRecords || pfmo.records || []);
   const kpis = buildKpis(indicators, trends);
-  const stateScores = buildStateScores(srh, sfm);
   const facilities = buildFacilities(srh, sfm, sheet);
   const facStatus = buildFunctionalStatus(mamii);
   if (facStatus) indicators[FUNCTIONAL_STATUS_INDICATOR] = facStatus;
-  return { indicators, facts, kpis, trends, stateScores, facilities, sheet };
+  return { indicators, facts, kpis, trends, facilities, sheet };
 }

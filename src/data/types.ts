@@ -76,6 +76,11 @@ export interface KpiCard {
   ring?: number;
   /** Invert the ring colour scale (lower = better). */
   ringInverse?: boolean;
+  /** Trend series this card's "over period" delta is derived from — lets the strip
+   *  recompute the delta over the filter-scoped series (null for cards with no trend). */
+  trendKey?: string;
+  /** True when the trend series is a percentage (delta shown in "pts", else "%"). */
+  trendIsPct?: boolean;
 }
 
 export interface KpiGroup {

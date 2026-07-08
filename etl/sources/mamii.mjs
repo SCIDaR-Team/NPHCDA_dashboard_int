@@ -43,7 +43,7 @@ const COL = {
   cbhwRecruited: 'Proportion of CBHWs recruited (state)',
   cbhwTrained: 'Number of CBHWs trained (state)',
   cbhwDeployed: 'Proportion of CBHWs deployed per state (state)',
-  cbhwAbsorbed: '% of recruited CBHWs that have been absorbed',
+  cbhwAbsorbed: '% of recruited CBHWs that have been absorbed ', // NB: source header has a trailing space
   // LGA-native (facility functionality + revitalisation).
   lgaTotalBhcpf: 'Total BHCPF Facilities (LGA)',
   l2: 'Proportion of L2 functional facilities per LGA (BHCPF)',

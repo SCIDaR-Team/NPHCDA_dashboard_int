@@ -6,7 +6,7 @@
  * source-agnostic records the transform layer maps onto indicator names.
  */
 import { fetchAllOData } from '../lib/odata.mjs';
-import { dig, num, collectCommStatus, isAvailable, toQuarter, toMonthLabel } from '../lib/util.mjs';
+import { dig, num, collectCommStatus, isAvailable, toQuarter, toMonthLabel, isFutureReport } from '../lib/util.mjs';
 import { normState, titleCase, cleanName, zoneForState, donorsForState } from '../lib/states.mjs';
 
 const SERVICE_URL = 'https://odk.mine.bz/v1/projects/1239/forms/SRH%20Routine%20tool.svc';
@@ -69,6 +69,10 @@ const TRACER_CONTRA = [
 function reportingPeriod(row) {
   const y = dig(row, 'Select_the_year_for_a_is_being_collected') ?? row.current_year;
   const m = dig(row, 'Select_the_month_for_ta_is_being_reported') ?? row.current_month_num;
+  // Drop data-entry typos in the reporting date that land in the future (e.g. a form
+  // submitted in 2026 but stamped "May 2027") so they can't pollute the period range,
+  // the trend frame, or the FP-increase baseline. The record still counts point-in-time.
+  if (isFutureReport(y, m)) return { quarter: null, month: null };
   return { quarter: toQuarter(y, m), month: toMonthLabel(y, m) };
 }
 

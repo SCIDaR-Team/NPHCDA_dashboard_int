@@ -130,6 +130,33 @@ export function scopeLabel(filter: FilterState): string {
   return parts.join(' · ');
 }
 
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * Recompute a KPI card's "over period" delta from a (possibly filter-scoped) trend
+ * series — mirrors the ETL's `deltaOf` exactly (first vs last non-null point). `pts`
+ * → "+X pts" for a percentage series, else "+X%" for a count. Returns the "Live"
+ * placeholder when the scoped series has fewer than two points.
+ */
+export function trendDelta(series: (number | null)[] | undefined, pts = false): { delta: string; dir: 'up' | 'down' } {
+  const vals = (series ?? []).filter((v): v is number => v != null);
+  if (vals.length < 2) return { delta: 'Live', dir: 'up' };
+  const first = vals[0];
+  const last = vals[vals.length - 1];
+  const diff = last - first;
+  const dir: 'up' | 'down' = diff >= 0 ? 'up' : 'down';
+  const val = pts
+    ? `${diff >= 0 ? '+' : ''}${round1(diff)} pts`
+    : `${diff >= 0 ? '+' : ''}${round1((diff / (first || 1)) * 100)}%`;
+  return { delta: `${val} over period`, dir };
+}
+
+/** Whether a geography / facility-type / donor scope is active — the scope that
+ *  rescopes TRENDS (a period filter doesn't apply to a time series). */
+export function trendScopeActive(filter: FilterState): boolean {
+  return !!(filter.state || filter.zone || filter.lga || filter.facility || filter.facilityType || filter.donor);
+}
+
 /** Filters the indicator/KPI cards can be scoped by (all compound with AND). */
 function cardScopeActive(filter: FilterState): boolean {
   return !!(

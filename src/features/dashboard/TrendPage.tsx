@@ -16,7 +16,11 @@ import {
   monthLabels,
   quarterLabels,
   yearLabels,
+  scopeLabel,
 } from '@/data/calculations';
+import { scopedTrends } from '@/data/scopedEngine';
+import { useFilterStore, pickFilter } from '@/store/filterStore';
+import { useSnapshotStore } from '@/store/snapshotStore';
 import type { TrendSeries } from '@/data/types';
 
 type Gran = 'monthly' | 'quarterly' | 'yearly';
@@ -24,9 +28,22 @@ type Mode = 'index' | 'actual';
 
 export function TrendPage() {
   const ds = getDataSource();
-  const { data: trendSeries, loading, error, reload } = useAsync(() => ds.getTrendSeries());
+  const { data: nationalTrends, loading, error, reload } = useAsync(() => ds.getTrendSeries());
+  const filter = useFilterStore(pickFilter);
+  const facts = useSnapshotStore((s) => s.facts);
   const theme = useChartTheme();
   const chartRef = useRef<HTMLDivElement>(null);
+
+  // Trends honour the dashboard's geography / facility-type / donor scope (the period
+  // filter is ignored — a trend spans time). When a scope is active, recompute the
+  // series over the AND-filtered facts via the shared trend engine; else national.
+  const geoActive = !!(filter.state || filter.zone || filter.lga || filter.facility || filter.facilityType || filter.donor);
+  const trendSeries = useMemo<TrendSeries | null>(() => {
+    if (geoActive && facts) return scopedTrends(filter);
+    return nationalTrends ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geoActive, facts, nationalTrends, filter.state, filter.zone, filter.lga, filter.facility, filter.facilityType, filter.donor]);
+  const scopeChip = geoActive ? scopeLabel({ ...filter, year: '', month: '' }) : '';
 
   const [gran, setGran] = useState<Gran>('monthly');
   const [mode, setMode] = useState<Mode>('index');
@@ -154,6 +171,11 @@ export function TrendPage() {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-2">
                   Indicators ({checked.size} of {names.length})
                 </span>
+                {scopeChip && (
+                  <span className="rounded-full border border-brand/40 bg-brand/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-bright">
+                    Scoped · {scopeChip}
+                  </span>
+                )}
               </div>
               <div className="flex max-h-32 flex-wrap gap-x-4 gap-y-2 overflow-y-auto rounded-lg border border-border bg-bg-elev-2/40 p-3">
                 {names.map((name) => {

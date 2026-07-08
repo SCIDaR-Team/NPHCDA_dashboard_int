@@ -3,6 +3,7 @@ import { Card, Badge, Tooltip } from '@/components/ui';
 import { RingProgress } from '@/components/charts/RingProgress';
 import { IndicatorViz, vizFor, isWideViz, vizEmbedsValue } from '@/components/dashboard/indicatorViz';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
+import { useSnapshotStore } from '@/store/snapshotStore';
 import {
   effectiveIndicatorValue,
   effectiveSplit4,
@@ -11,7 +12,9 @@ import {
   statusFor,
   looksLikePercent,
   scopedSiblings,
+  trendScopeActive,
 } from '@/data/calculations';
+import { scopedTrends } from '@/data/scopedEngine';
 import { ALL_STATES, ZONE_STATES, STATE_DONORS } from '@/data/geo/states';
 import { DEFINITIONS, TIER_LABELS } from '@/data/catalogue';
 import { cleanName, decodeHtml } from '@/lib/format';
@@ -64,8 +67,12 @@ export function IndicatorCard({
   disableWide?: boolean;
 }) {
   const filter = useFilterStore(pickFilter);
+  const facts = useSnapshotStore((s) => s.facts);
   const ind = indicator;
   const spec = vizFor(ind.name);
+  // Under a geo scope, the trend-backed viz (deliveries kpiStat) reflects the scoped
+  // series; else the national trend passed from the page.
+  const effTrends = trendScopeActive(filter) && facts ? scopedTrends(filter) : trends;
 
   const hasDrill = ind.tier !== 3 && ind.pct > 0 && !ind.split4;
   const eff = !ind.split4 ? effectiveIndicatorValue(ind, filter) : null;
@@ -197,7 +204,7 @@ export function IndicatorCard({
             indicator={vizInd}
             spec={spec!}
             siblings={vizSiblings}
-            trends={trends}
+            trends={effTrends}
             scoped={scopeActive}
             scopeStates={scopeStates}
             highlightState={filter.state || undefined}

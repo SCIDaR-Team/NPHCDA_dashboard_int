@@ -28,6 +28,5 @@ export interface DataSource {
   getDefinitions(): Promise<Record<string, CompositeDefinition>>;
   getTrendSeries(): Promise<TrendSeries>;
   getFacilities(): Promise<FacilityRow[]>;
-  getStateScores(): Promise<Record<string, number>>;
   getStateDonors(): Promise<Record<string, string[]>>;
 }

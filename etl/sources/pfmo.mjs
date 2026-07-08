@@ -351,7 +351,11 @@ function latestPer(rows, keyOf) {
   return [...byKey.values()];
 }
 
-const facilityKey = (r) => r.facilityId || `${r.state}|${r.lga}|${r.facility}`;
+// Dedupe by state|lga|facility (the name already embeds PFMO's ":CODE" suffix, so it's
+// effectively the facility identity). This is the SAME key the browser scopedEngine uses
+// over the shipped facts (which don't carry facilityId), so the national status
+// indicators (#17/#27/#47) and the filtered/scoped ones stay identical — no seam.
+const facilityKey = (r) => `${r.state}|${r.lga}|${r.facility}`;
 
 /**
  * @param {string} key  PFMO_API_KEY (sent as X-API-Key).

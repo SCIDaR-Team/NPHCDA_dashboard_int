@@ -11,13 +11,11 @@ export const FD_COLUMNS: FacilityColumn[] = [
   { key: 'type', label: 'Type', always: true },
   { key: 'status', label: 'Functional Status', always: true },
   { key: 'tracer', label: 'Commodities available (#)', always: false },
-  { key: 'maternalDeaths', label: 'Maternal Deaths', always: false },
   { key: 'satisfaction', label: 'Patient Satisfaction %', always: false },
-  { key: 'penta3', label: 'Penta 3 %', always: false },
 ];
 
 /** Facility-matrix columns with no real source yet — rendered as "No data". */
-export const FD_NO_DATA_COLUMNS = new Set(['satisfaction', 'penta3']);
+export const FD_NO_DATA_COLUMNS = new Set(['satisfaction']);
 
 /** Trend series colours (cycled across whichever real series the snapshot emits). */
 export const trendColors: string[] = [

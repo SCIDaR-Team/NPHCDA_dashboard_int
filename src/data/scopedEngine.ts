@@ -17,7 +17,8 @@
  * lockstep with the compound values by construction.
  */
 import { buildIndicators, mamiiFunctionalSplit, type EngineRecord, type EngineBundle } from '../../etl/lib/indicators.mjs';
-import type { FilterState, Split4 } from './types';
+import { buildTrends } from '../../etl/lib/trends.mjs';
+import type { FilterState, Split4, TrendSeries } from './types';
 import { useSnapshotStore } from '@/store/snapshotStore';
 
 /** A single scoped measurement (carries `n` so the UI can flag small samples). */
@@ -157,6 +158,36 @@ export function scopedMeasurements(filter: FilterState): Record<string, ScopedMe
   compoundFacts = facts;
   compoundKey = key;
   return compoundVal;
+}
+
+/* ------------------------------------------------------------------ *
+ * Scoped monthly trends (Trend Analysis page under an active filter). Re-runs the
+ * SAME shared trend engine (etl/lib/trends.mjs) the ETL used for the national series,
+ * over the AND-filtered facts — so a scoped line is the honest recomputation, never a
+ * slice of the national one. The period (year/month) part of the filter is IGNORED: a
+ * trend spans time, so only geography / facility-type / donor scope it.
+ * ------------------------------------------------------------------ */
+let trendFacts: SnapshotFacts | null = null;
+let trendKey: string | null = null;
+let trendVal: TrendSeries | null = null;
+
+export function scopedTrends(filter: FilterState): TrendSeries | null {
+  const facts = useSnapshotStore.getState().facts;
+  if (!facts) return null;
+  // Trends ignore the period (year/month) part of the filter, so the memo key is the
+  // geography / facility-type / donor scope only — one engine pass per distinct scope,
+  // reused across the many cards that ask for it on a page.
+  const key = JSON.stringify([filter.zone, filter.state, filter.lga, filter.facility, filter.facilityType, filter.donor]);
+  if (trendVal && trendFacts === facts && trendKey === key) return trendVal;
+  const { match } = makePredicate({ ...filter, year: '', month: '' });
+  trendVal = buildTrends(
+    facts.srh.filter(match),
+    facts.sfm.filter(match),
+    (facts.pfmo ?? []).filter(match),
+  ) as TrendSeries;
+  trendFacts = facts;
+  trendKey = key;
+  return trendVal;
 }
 
 /* ------------------------------------------------------------------ *

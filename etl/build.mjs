@@ -47,9 +47,17 @@ async function main() {
   const mamii = await safe('MAMII (static dataset)', () => loadMamii());
   const pfmo = await safe('PFMO', () => loadPfmo(required('PFMO_API_KEY')));
 
-  const { indicators, facts, kpis, trends, stateScores, facilities } = transform({ srh, sfm, sheet, mamii, pfmo });
+  const { indicators, facts, kpis, trends, facilities } = transform({ srh, sfm, sheet, mamii, pfmo });
 
+  // Future-dated reporting typos are already nulled at the adapters, so the source
+  // quarter lists are clean; sort for a stable range.
   const quarters = [...new Set([...(srh.quarters || []), ...(sfm.quarters || [])])].sort();
+  // States covered = distinct states across every real fact stream.
+  const stateSet = new Set(
+    [...facts.srh, ...facts.sfm, ...facts.sheet, ...facts.mamii, ...facts.pfmo]
+      .map((r) => r.state)
+      .filter(Boolean)
+  );
   const snapshot = {
     generatedAt: new Date().toISOString(),
     period: { quarters, from: quarters[0] ?? null, to: quarters[quarters.length - 1] ?? null },
@@ -63,14 +71,13 @@ async function main() {
     counts: {
       indicators: Object.keys(indicators).length,
       facilities: facilities.length,
-      states: Object.keys(stateScores).length,
+      states: stateSet.size,
       facts: facts.srh.length + facts.sfm.length + facts.sheet.length + facts.mamii.length + facts.pfmo.length,
     },
     indicators,
     facts,
     kpis,
     trends,
-    stateScores,
     facilities,
   };
 
