@@ -27,6 +27,7 @@ export function KpiStrip({
     filter.state ||
     filter.zone ||
     filter.donor ||
+    filter.source ||
     filter.lga ||
     filter.ward ||
     filter.facilityType ||

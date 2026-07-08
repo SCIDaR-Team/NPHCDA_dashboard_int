@@ -94,6 +94,26 @@ export function FacilityDeepdivePage() {
   const facts = useSnapshotStore((s) => s.facts);
   const pfmoBase = useMemo(() => (facts ? pfmoRegistry() : EMPTY_REGISTRY), [facts]);
 
+  // Per-programme sets of facility keys (state|lga|facility) derived from the raw
+  // source facts, so the Programme filter can scope the roster by which source a
+  // facility actually reports through. SRH spans its ODK form AND its Sheet baseline.
+  const sourceFacilityKeys = useMemo(() => {
+    if (!facts) return null;
+    const keyOf = (r: { state?: string; lga?: string; facility?: string }) =>
+      `${r.state ?? ''}|${r.lga ?? ''}|${r.facility ?? ''}`;
+    const build = (...arrs: { facility?: string }[][]) => {
+      const s = new Set<string>();
+      for (const arr of arrs) for (const r of arr) if (r.facility) s.add(keyOf(r));
+      return s;
+    };
+    return {
+      SRH: build(facts.srh, facts.sheet),
+      SFM: build(facts.sfm),
+      MAMII: build(facts.mamii ?? []),
+      PFMO: build(facts.pfmo ?? []),
+    } as Record<string, Set<string>>;
+  }, [facts]);
+
   const [mode, setMode] = useState<Mode>('assessed');
 
   // Local-only controls (independent of the global dashboard filters).
@@ -112,6 +132,14 @@ export function FacilityDeepdivePage() {
     setSort({ key: 'state', dir: 'asc' });
   }, [mode]);
 
+  // A Programme filter maps onto the two universes: PFMO → the national registry,
+  // every other source → the assessed roster. Auto-switch so the user lands on the
+  // universe that can actually hold the selected programme's facilities.
+  useEffect(() => {
+    if (!globalFilter.source) return;
+    setMode(globalFilter.source === 'PFMO' ? 'registry' : 'assessed');
+  }, [globalFilter.source]);
+
   // Effective state: local override wins; otherwise inherit the dashboard's state filter.
   const effectiveState = localState || globalFilter.state;
   const effectiveSearch = localSearch || globalFilter.search;
@@ -129,6 +157,17 @@ export function FacilityDeepdivePage() {
     if (mode !== 'assessed') return [] as FacilityRow[];
     const dir = sort.dir === 'asc' ? 1 : -1;
     let out = FAC.filter((r) => globalMatch(r, globalFilter));
+    // Programme (source) scope: SRH/SFM narrow the roster to that source's facilities;
+    // PFMO/MAMII have no assessed rows at all (PFMO lives in the registry universe,
+    // MAMII carries no per-facility roster row).
+    if (globalFilter.source) {
+      if (globalFilter.source === 'SRH' || globalFilter.source === 'SFM') {
+        const set = sourceFacilityKeys?.[globalFilter.source];
+        out = set ? out.filter((r) => set.has(`${r.state}|${r.lga}|${r.facility}`)) : [];
+      } else {
+        return [] as FacilityRow[];
+      }
+    }
     if (effectiveState) out = out.filter((r) => r.state === effectiveState);
     else if (globalFilter.lga) out = out.filter((r) => r.lga === globalFilter.lga);
     if (localLga) out = out.filter((r) => r.lga === localLga);
@@ -154,11 +193,13 @@ export function FacilityDeepdivePage() {
       return c !== 0 ? c : tiebreak(a, b);
     };
     return [...out].sort(cmp);
-  }, [mode, FAC, globalFilter, effectiveState, localLga, effectiveSearch, sort]);
+  }, [mode, FAC, globalFilter, effectiveState, localLga, effectiveSearch, sort, sourceFacilityKeys]);
 
   // ---- PFMO national registry ----------------------------------------------
   const registryRows = useMemo(() => {
     if (mode !== 'registry') return EMPTY_REGISTRY;
+    // The registry IS the PFMO universe, so any non-PFMO programme filter empties it.
+    if (globalFilter.source && globalFilter.source !== 'PFMO') return EMPTY_REGISTRY;
     const dir = sort.dir === 'asc' ? 1 : -1;
     let out = pfmoBase.filter((r) => registryGlobalMatch(r, globalFilter));
     if (effectiveState) out = out.filter((r) => r.state === effectiveState);

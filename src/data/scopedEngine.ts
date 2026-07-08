@@ -77,6 +77,35 @@ function parsePeriod(month: unknown): { yr: string; full: string } | null {
   return full && yr ? { yr, full } : null;
 }
 
+/**
+ * Programme (data-source system) → the fact arrays it owns. SRH spans BOTH its ODK
+ * form and its Google-Sheet baseline; the others map 1:1. A programme filter keeps
+ * only these arrays and empties the rest, so the shared engine computes indicators
+ * from that source alone.
+ */
+const SOURCE_ARRAYS: Record<string, (keyof SnapshotFacts)[]> = {
+  SRH: ['srh', 'sheet'],
+  SFM: ['sfm'],
+  MAMII: ['mamii'],
+  PFMO: ['pfmo'],
+};
+const EMPTY_RECS: EngineRecord[] = [];
+
+/** Facts with every source the active programme filter excludes zeroed out. No
+ *  filter (or an unknown value) → the facts pass through untouched. */
+function applySource(facts: SnapshotFacts, source: string): SnapshotFacts {
+  const keys = SOURCE_ARRAYS[source];
+  if (!keys) return facts;
+  const keep = new Set(keys);
+  return {
+    srh: keep.has('srh') ? facts.srh : EMPTY_RECS,
+    sfm: keep.has('sfm') ? facts.sfm : EMPTY_RECS,
+    sheet: keep.has('sheet') ? facts.sheet : EMPTY_RECS,
+    mamii: keep.has('mamii') ? facts.mamii ?? EMPTY_RECS : EMPTY_RECS,
+    pfmo: keep.has('pfmo') ? facts.pfmo ?? EMPTY_RECS : EMPTY_RECS,
+  };
+}
+
 type Predicate = (r: EngineRecord) => boolean;
 
 /** The AND-of-all-active-filters predicate. `ward`/`search` are not scope dims. */
@@ -142,7 +171,7 @@ let compoundKey: string | null = null;
 let compoundVal: Record<string, ScopedMeasure> | null = null;
 
 function filterKey(f: FilterState): string {
-  return JSON.stringify([f.zone, f.state, f.lga, f.facility, f.facilityType, f.donor, f.year, f.month]);
+  return JSON.stringify([f.zone, f.state, f.lga, f.facility, f.facilityType, f.donor, f.source, f.year, f.month]);
 }
 
 /**
@@ -156,7 +185,7 @@ export function scopedMeasurements(filter: FilterState): Record<string, ScopedMe
   const key = filterKey(filter);
   if (compoundVal && compoundFacts === facts && compoundKey === key) return compoundVal;
   const { match, periodActive } = makePredicate(filter);
-  compoundVal = runEngine(facts, match, periodActive);
+  compoundVal = runEngine(applySource(facts, filter.source), match, periodActive);
   compoundFacts = facts;
   compoundKey = key;
   return compoundVal;
@@ -179,13 +208,17 @@ export function scopedTrends(filter: FilterState): TrendSeries | null {
   // Trends ignore the period (year/month) part of the filter, so the memo key is the
   // geography / facility-type / donor scope only — one engine pass per distinct scope,
   // reused across the many cards that ask for it on a page.
-  const key = JSON.stringify([filter.zone, filter.state, filter.lga, filter.facility, filter.facilityType, filter.donor]);
+  const key = JSON.stringify([filter.zone, filter.state, filter.lga, filter.facility, filter.facilityType, filter.donor, filter.source]);
   if (trendVal && trendFacts === facts && trendKey === key) return trendVal;
   const { match } = makePredicate({ ...filter, year: '', month: '' });
+  // A programme filter narrows the trend to that source's records. MAMII carries no
+  // reporting month, so it isn't part of the trend engine at all — filtering to MAMII
+  // yields an (honestly) empty series.
+  const src = applySource(facts, filter.source);
   trendVal = buildTrends(
-    facts.srh.filter(match),
-    facts.sfm.filter(match),
-    (facts.pfmo ?? []).filter(match),
+    src.srh.filter(match),
+    src.sfm.filter(match),
+    (src.pfmo ?? []).filter(match),
   ) as TrendSeries;
   trendFacts = facts;
   trendKey = key;
@@ -341,10 +374,14 @@ function functionalStatusByFacility(): Record<string, ScopedMeasure> {
  *  shows its national split), or an out-of-scope marker when the scope selects no
  *  MAMII rows. MAMII has no reporting period, so year/month never rescope it. */
 export function functionalStatusScopedSplit(filter: FilterState): (Split4 & { outOfScope: boolean }) | null {
-  const geoActive = !!(filter.state || filter.zone || filter.lga || filter.facility || filter.facilityType || filter.donor);
+  const geoActive = !!(filter.state || filter.zone || filter.lga || filter.facility || filter.facilityType || filter.donor || filter.source);
   if (!geoActive) return null;
-  const rows = useSnapshotStore.getState().facts?.mamii ?? [];
-  if (!rows.length) return null;
+  const facts = useSnapshotStore.getState().facts;
+  if (!facts) return null;
+  // Functional status is MAMII-only, so any programme filter that excludes MAMII
+  // takes the whole split out of scope.
+  const rows = applySource(facts, filter.source).mamii ?? [];
+  if (!filter.source && !rows.length) return null;
   const { match } = makePredicate({ ...filter, year: '', month: '' });
   const s = mamiiFunctionalSplit(rows.filter(match));
   if (!s) return { l2: 0, l1: 0, partial: 0, nonfunc: 0, outOfScope: true };

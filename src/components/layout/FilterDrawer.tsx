@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { RotateCcw, Bookmark } from 'lucide-react';
 import { Drawer } from '@/components/ui/Drawer';
-import { Button, Input, Select, FieldLabel } from '@/components/ui';
+import { Button, Input, Select, Combobox, FieldLabel } from '@/components/ui';
 import { useFilterStore, EMPTY_FILTER } from '@/store/filterStore';
 import { useSavedViewsStore } from '@/store/savedViewsStore';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -61,6 +61,7 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
       setDraft({
         search: store.search,
         donor: store.donor,
+        source: store.source,
         zone: store.zone,
         state: store.state,
         lga: store.lga,
@@ -158,12 +159,29 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
           />
         </div>
         <div>
-          <FieldLabel>Donor / programme</FieldLabel>
+          <FieldLabel>Donor</FieldLabel>
           <Select
             value={draft.donor}
             onChange={(e) => set({ donor: e.target.value })}
-            options={toOpts(donorOptions, 'All donors / programmes')}
+            options={toOpts(donorOptions, 'All donors')}
           />
+        </div>
+        <div>
+          <FieldLabel>Programme</FieldLabel>
+          <Select
+            value={draft.source}
+            onChange={(e) => set({ source: e.target.value })}
+            options={[
+              { value: '', label: 'All programmes' },
+              { value: 'SRH', label: 'SRH' },
+              { value: 'SFM', label: 'SFM' },
+              { value: 'MAMII', label: 'MAMII' },
+              { value: 'PFMO', label: 'PFMO' },
+            ]}
+          />
+          <p className="mt-1 text-[10px] leading-snug text-muted">
+            Scope every figure to one programme's records.
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -193,7 +211,13 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
           </div>
           <div>
             <FieldLabel>Facility</FieldLabel>
-            <Select value={draft.facility} onChange={(e) => set({ facility: e.target.value })} options={facilityOptions} />
+            <Combobox
+              value={draft.facility}
+              onChange={(facility) => set({ facility })}
+              options={facilityOptions}
+              placeholder="All facilities"
+              searchPlaceholder="Search facilities…"
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">

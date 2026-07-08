@@ -6,4 +6,6 @@ export { Modal } from './Modal';
 export { Drawer } from './Drawer';
 export { Tooltip } from './Tooltip';
 export { Input, Select, FieldLabel } from './Field';
+export { Combobox } from './Combobox';
+export type { ComboOption } from './Combobox';
 export { Spinner, Skeleton, EmptyState, ErrorState } from './Feedback';

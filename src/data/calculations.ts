@@ -124,6 +124,7 @@ export function scopeLabel(filter: FilterState): string {
   const geo = filter.facility || filter.ward || filter.lga || filter.state || filter.zone;
   if (geo) parts.push(geo);
   if (filter.donor) parts.push(filter.donor);
+  if (filter.source) parts.push(filter.source);
   if (filter.facilityType) parts.push(filter.facilityType);
   const period = [filter.month, filter.year].filter(Boolean).join(' ');
   if (period) parts.push(period);
@@ -154,7 +155,7 @@ export function trendDelta(series: (number | null)[] | undefined, pts = false): 
 /** Whether a geography / facility-type / donor scope is active — the scope that
  *  rescopes TRENDS (a period filter doesn't apply to a time series). */
 export function trendScopeActive(filter: FilterState): boolean {
-  return !!(filter.state || filter.zone || filter.lga || filter.facility || filter.facilityType || filter.donor);
+  return !!(filter.state || filter.zone || filter.lga || filter.facility || filter.facilityType || filter.donor || filter.source);
 }
 
 /** Filters the indicator/KPI cards can be scoped by (all compound with AND). */
@@ -165,6 +166,7 @@ function cardScopeActive(filter: FilterState): boolean {
     filter.state ||
     filter.zone ||
     filter.donor ||
+    filter.source ||
     filter.facilityType ||
     filter.year ||
     filter.month

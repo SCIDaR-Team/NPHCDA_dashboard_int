@@ -37,12 +37,12 @@ export function TrendPage() {
   // Trends honour the dashboard's geography / facility-type / donor scope (the period
   // filter is ignored — a trend spans time). When a scope is active, recompute the
   // series over the AND-filtered facts via the shared trend engine; else national.
-  const geoActive = !!(filter.state || filter.zone || filter.lga || filter.facility || filter.facilityType || filter.donor);
+  const geoActive = !!(filter.state || filter.zone || filter.lga || filter.facility || filter.facilityType || filter.donor || filter.source);
   const trendSeries = useMemo<TrendSeries | null>(() => {
     if (geoActive && facts) return scopedTrends(filter);
     return nationalTrends ?? null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [geoActive, facts, nationalTrends, filter.state, filter.zone, filter.lga, filter.facility, filter.facilityType, filter.donor]);
+  }, [geoActive, facts, nationalTrends, filter.state, filter.zone, filter.lga, filter.facility, filter.facilityType, filter.donor, filter.source]);
   const scopeChip = geoActive ? scopeLabel({ ...filter, year: '', month: '' }) : '';
 
   const [gran, setGran] = useState<Gran>('monthly');

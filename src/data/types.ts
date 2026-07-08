@@ -152,6 +152,9 @@ export type TrendSeries = Record<string, (number | null)[]>;
 export interface FilterState {
   search: string;
   donor: string;
+  /** Data-source / programme scope: '' (all), 'SRH', 'SFM', 'MAMII' or 'PFMO'.
+   *  Restricts every scoped computation to the selected source's records. */
+  source: string;
   zone: string;
   state: string;
   lga: string;

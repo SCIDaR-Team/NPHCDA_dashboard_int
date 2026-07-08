@@ -39,8 +39,13 @@ export function EChart({ option, height = 320, className, onEvents }: EChartProp
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const inst = chartRef.current?.getEchartsInstance();
-    const resize = () => inst?.resize();
+    // Resolve the LIVE instance on every call (never a captured reference): the inner
+    // ReactECharts remounts on a theme toggle (key={theme}), disposing the old chart —
+    // a stale reference would then resize a disposed instance and spam ECharts warnings.
+    const resize = () => {
+      const inst = chartRef.current?.getEchartsInstance();
+      if (inst && !inst.isDisposed()) inst.resize();
+    };
     const ro = new ResizeObserver(() => resize());
     ro.observe(el);
     // A couple of deferred resizes catch the modal's open animation settling.
@@ -51,7 +56,7 @@ export function EChart({ option, height = 320, className, onEvents }: EChartProp
     let cancelled = false;
     if (document.fonts?.ready) {
       document.fonts.ready.then(() => {
-        if (!cancelled) inst?.resize();
+        if (!cancelled) resize();
       });
     }
     return () => {

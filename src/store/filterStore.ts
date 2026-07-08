@@ -4,6 +4,7 @@ import type { FilterState } from '@/data/types';
 export const EMPTY_FILTER: FilterState = {
   search: '',
   donor: '',
+  source: '',
   zone: '',
   state: '',
   lga: '',
@@ -33,7 +34,7 @@ export const useFilterStore = create<FilterStore>((set, get) => ({
   apply: (next) => set({ ...next }),
   activeCount: () => {
     const s = get();
-    return (['donor', 'zone', 'state', 'lga', 'ward', 'facilityType', 'facility', 'search', 'year', 'month'] as const).filter(
+    return (['donor', 'source', 'zone', 'state', 'lga', 'ward', 'facilityType', 'facility', 'search', 'year', 'month'] as const).filter(
       (k) => s[k]
     ).length;
   },
@@ -44,6 +45,7 @@ export function pickFilter(s: FilterStore): FilterState {
   return {
     search: s.search,
     donor: s.donor,
+    source: s.source,
     zone: s.zone,
     state: s.state,
     lga: s.lga,
