@@ -149,7 +149,7 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <FieldLabel>Search facility</FieldLabel>
           <Input
@@ -158,30 +158,29 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
             onChange={(e) => set({ search: e.target.value })}
           />
         </div>
-        <div>
-          <FieldLabel>Donor</FieldLabel>
-          <Select
-            value={draft.donor}
-            onChange={(e) => set({ donor: e.target.value })}
-            options={toOpts(donorOptions, 'All donors')}
-          />
-        </div>
-        <div>
-          <FieldLabel>Programme</FieldLabel>
-          <Select
-            value={draft.source}
-            onChange={(e) => set({ source: e.target.value })}
-            options={[
-              { value: '', label: 'All programmes' },
-              { value: 'SRH', label: 'SRH' },
-              { value: 'SFM', label: 'SFM' },
-              { value: 'MAMII', label: 'MAMII' },
-              { value: 'PFMO', label: 'PFMO' },
-            ]}
-          />
-          <p className="mt-1 text-[10px] leading-snug text-muted">
-            Scope every figure to one programme's records.
-          </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <FieldLabel>Donor</FieldLabel>
+            <Select
+              value={draft.donor}
+              onChange={(e) => set({ donor: e.target.value })}
+              options={toOpts(donorOptions, 'All donors')}
+            />
+          </div>
+          <div>
+            <FieldLabel>Programme</FieldLabel>
+            <Select
+              value={draft.source}
+              onChange={(e) => set({ source: e.target.value })}
+              options={[
+                { value: '', label: 'All programmes' },
+                { value: 'SRH', label: 'SRH' },
+                { value: 'SFM', label: 'SFM' },
+                { value: 'MAMII', label: 'MAMII' },
+                { value: 'PFMO', label: 'PFMO' },
+              ]}
+            />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -200,8 +199,7 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
           </div>
           <div>
             <FieldLabel>Ward</FieldLabel>
-            <Select value="" onChange={() => {}} options={[{ value: '', label: 'Not collected' }]} disabled />
-            <p className="mt-1 text-[10px] leading-snug text-muted">Ward is not collected by any source yet.</p>
+            <Select value="" onChange={() => {}} options={[{ value: '', label: 'Not collected yet' }]} disabled />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
