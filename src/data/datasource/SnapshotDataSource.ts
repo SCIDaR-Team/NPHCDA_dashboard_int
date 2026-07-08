@@ -70,6 +70,28 @@ export class SnapshotDataSource implements DataSource {
           return res.json() as Promise<Snapshot>;
         })
         .then((snap) => {
+          // Normalize stray 2027-dated rows to 2026 so they don't appear as
+          // future-period submissions in the UI. Only the year is changed;
+          // months and other fields are preserved.
+          if (snap && (snap as any).facts) {
+            const facts = (snap as any).facts as Record<string, any[]>;
+            const fixRecord = (r: any) => {
+              if (!r || typeof r !== 'object') return r;
+              if (typeof r.month === 'string' && /\b2027\b/.test(r.month)) {
+                r.month = String(r.month).replace(/\b2027\b/g, '2026');
+              }
+              if (typeof r.quarter === 'string' && /^2027\b/.test(r.quarter)) {
+                r.quarter = String(r.quarter).replace(/^2027/, '2026');
+              }
+              return r;
+            };
+            for (const k of Object.keys(facts)) {
+              const arr = facts[k];
+              if (Array.isArray(arr)) {
+                for (let i = 0; i < arr.length; i++) arr[i] = fixRecord(arr[i]);
+              }
+            }
+          }
           useSnapshotStore.getState().setFacts(snap?.facts ?? null);
           useSnapshotStore.getState().setFacilities(snap?.facilities ?? []);
           return snap;

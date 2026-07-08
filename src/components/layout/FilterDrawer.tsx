@@ -98,7 +98,7 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
     return toOpts(distinct(src.map((f) => f.facility)), 'All facilities');
   }, [FAC, draft.state, draft.lga, draft.facilityType]);
 
-  const yearOptions = useMemo(() => ['2027', '2026', '2025'], []);
+  const yearOptions = useMemo(() => ['2026', '2025'], []);
   const monthOptions = useMemo(
     () => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     []
