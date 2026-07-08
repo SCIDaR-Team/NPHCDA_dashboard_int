@@ -20,6 +20,9 @@ export interface EngineMeasurement {
   meta?: string;
   info?: string | null;
   count?: number;
+  /** Optional secondary figure (e.g. the delivery count behind a proportion), shown
+   *  in the deep-dive breakdown. */
+  sub?: string;
 }
 
 export function buildIndicators(

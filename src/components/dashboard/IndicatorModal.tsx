@@ -5,7 +5,8 @@ import { StatusPill, Select } from '@/components/ui';
 import { EChart } from '@/components/charts/EChart';
 import { useChartTheme } from '@/components/charts/chartTheme';
 import { horizontalBarOption, horizontalBarHeight, baseTooltip } from '@/components/charts/chartBase';
-import { coverageNote, heatColor, statusFor, stateMeasures, facilityMeasures, SMALL_N } from '@/data/calculations';
+import { coverageNote, heatColor, statusFor, stateMeasures, facilityMeasures, looksLikePercent, SMALL_N } from '@/data/calculations';
+import { CHART_GREEN, CHART_GREEN_SOFT, secondaryColor } from '@/components/charts/palette';
 import { functionalStatusStateSplits, FUNCTIONAL_STATUS_INDICATOR, HIDE_ZERO_DISTRIBUTION_INDICATORS, parseFacilityKey } from '@/data/scopedEngine';
 import { getDataSource } from '@/data/datasource';
 import { useAsync } from '@/hooks/useAsync';
@@ -16,16 +17,19 @@ type View = 'state' | 'facility';
 type RecvFilter = 'all' | 'received' | 'none';
 
 const BHCPF_FUNDS_INDICATOR = 'Total BHCPF funds received vs. expected';
+const SBA_ATTENDED_INDICATOR = 'Proportion of deliveries attended by a skilled birth attendant';
 
 /** Facility rows shown per page in the "By facility" table. */
 const FACILITY_PAGE_SIZE = 50;
 
-/** Segment colours for the functional-status stacked bar / facility badges. */
+/** Segment colours for the functional-status stacked bar / facility badges —
+ *  L2 (fully functional) is the primary green, L1 the lighter green, and the
+ *  partial / non-functional classes the fixed secondary palette. */
 const STATUS_COLORS: Record<string, string> = {
-  L2: '#2E8B57',
-  L1: '#6FA888',
-  Partial: '#C9A227',
-  'Non-functional': '#C2562C',
+  L2: CHART_GREEN,
+  L1: CHART_GREEN_SOFT,
+  Partial: secondaryColor(1),
+  'Non-functional': secondaryColor(3),
 };
 
 /** The real headline number behind a measurement's display string — the FIRST
@@ -43,6 +47,13 @@ function magnitudeOf(display: string, pct: number): number {
   else if (/^\s*m/i.test(after)) n *= 1e6;
   else if (/^\s*k/i.test(after)) n *= 1e3;
   return n;
+}
+
+/** Leading integer in an SBA "19,501 deliveries" sub-string — for sorting by volume. */
+function deliveriesCount(sub?: string): number {
+  if (!sub) return 0;
+  const m = sub.replace(/,/g, '').match(/\d+/);
+  return m ? parseInt(m[0], 10) : 0;
 }
 
 /** Round a bar-axis maximum up to a clean bound (percent stays 0-100). */
@@ -78,6 +89,8 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
 
   const isFunctional = ind?.name === FUNCTIONAL_STATUS_INDICATOR;
   const isBhcpfFunds = ind?.name === BHCPF_FUNDS_INDICATOR;
+  // SBA-attended deep-dive splits into two columns: delivery count + attended %.
+  const isSbaAttended = ind?.name === SBA_ATTENDED_INDICATOR;
   // A Good/Fair/Poor pill only makes sense for percent-graded indicators — not
   // counts, ₦ amounts, rates (neutral pct) or the categorical functional status.
   const showStatus = !!ind && !isFunctional && /^\s*[+-]?\d[\d.,]*%/.test(String(ind.value));
@@ -97,16 +110,16 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   // largest → smallest, even for count/rate indicators (colour still encodes
   // goodness via `value`/inverse, below).
   const stateRows = useMemo(() => {
-    if (!ind) return [] as { label: string; value: number; magnitude: number; display: string; n?: number }[];
+    if (!ind) return [] as { label: string; value: number; magnitude: number; display: string; sub?: string; n?: number }[];
     const hideZero = HIDE_ZERO_DISTRIBUTION_INDICATORS.has(ind.name);
     return Object.entries(stateMeasures(ind.name))
-      .map(([label, m]) => ({ label, value: m.pct, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, n: m.n }))
+      .map(([label, m]) => ({ label, value: m.pct, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, sub: m.sub, n: m.n }))
       .filter((r) => !hideZero || r.magnitude > 0) // MAMII activity indicators: list only states with real activity
       .sort((a, b) => b.magnitude - a.magnitude);
   }, [ind?.name, facilities]);
 
   const facilityRows = useMemo(() => {
-    if (!ind) return [] as { facility: string; state: string; lga: string; value: number; magnitude: number; display: string; n?: number }[];
+    if (!ind) return [] as { facility: string; state: string; lga: string; value: number; magnitude: number; display: string; sub?: string; n?: number }[];
     const facMap = new Map((facilities ?? []).map((f) => [f.facility, f]));
     const hideZero = HIDE_ZERO_DISTRIBUTION_INDICATORS.has(ind.name);
     // Keys are state|lga|facility (see parseFacilityKey) so same-named facilities in
@@ -117,7 +130,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
         const f = facMap.get(facility);
         const state = kState || f?.state || '—';
         const lga = kLga || f?.lga || '—';
-        return { facility, state, lga, value: m.pct, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, n: m.n };
+        return { facility, state, lga, value: m.pct, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, sub: m.sub, n: m.n };
       })
       .filter((r) => !hideZero || r.magnitude > 0) // MAMII activity indicators: list only facilities with real activity
       .sort((a, b) => b.magnitude - a.magnitude);
@@ -133,8 +146,12 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
     if (isBhcpfFunds && recvFilter !== 'all') {
       rows = rows.filter((r) => (recvFilter === 'received' ? r.magnitude > 0 : r.magnitude <= 0));
     }
+    // SBA-attended is ~100% everywhere, so rank by delivery volume (the meaningful axis).
+    if (isSbaAttended) {
+      rows = [...rows].sort((a, b) => deliveriesCount(b.sub) - deliveriesCount(a.sub));
+    }
     return rows;
-  }, [facilityRows, facilityState, isBhcpfFunds, recvFilter]);
+  }, [facilityRows, facilityState, isBhcpfFunds, recvFilter, isSbaAttended]);
 
   // Paginate the (possibly large) facility list so we never mount thousands of rows.
   const pageCount = Math.max(1, Math.ceil(visibleFacilityRows.length / FACILITY_PAGE_SIZE));
@@ -182,20 +199,25 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
     const labels = stateRows.map((r) => r.label);
     const magnitudes = stateRows.map((r) => r.magnitude);
     const max = niceMax(Math.max(0, ...magnitudes));
+    // Percentage indicators keep the performance heat scale (good/bad semantic);
+    // count / amount / rate indicators are a single category → one brand green.
+    const isPct = looksLikePercent(String(ind.value));
     const option = horizontalBarOption({
       theme,
       categories: labels,
       max,
       axisValueFormatter: compactAxis,
       // Bar length = the real magnitude (count / percent / rate / amount); colour
-      // keeps encoding goodness from each row's pct (inverse-aware), decoupled from length.
+      // encodes goodness for percentages, and stays a single brand green otherwise.
       series: [
         {
           data: magnitudes,
-          colorFor: (_v, i) => {
-            const r = stateRows[i];
-            return ind.inverse ? heatColor(100 - r.value) : heatColor(r.value);
-          },
+          colorFor: isPct
+            ? (_v, i) => {
+                const r = stateRows[i];
+                return ind.inverse ? heatColor(100 - r.value) : heatColor(r.value);
+              }
+            : () => CHART_GREEN,
         },
       ],
     });
@@ -205,7 +227,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
       axisPointer: { type: 'shadow' },
       formatter: (p: any) => {
         const row = stateRows[p[0].dataIndex];
-        return `<b>${row.label}</b><br/>${row.display}${row.n != null ? `<br/>n = ${row.n}${row.n < SMALL_N ? ' (small sample)' : ''}` : ''}`;
+        return `<b>${row.label}</b><br/>${row.display}${row.sub ? ` · ${row.sub}` : ''}${row.n != null ? `<br/>n = ${row.n}${row.n < SMALL_N ? ' (small sample)' : ''}` : ''}`;
       },
     };
     return { option, height: horizontalBarHeight(labels) };
@@ -292,6 +314,12 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                       <th className="px-3 py-2 font-semibold">State</th>
                       {isFunctional ? (
                         <th className="px-3 py-2 font-semibold">Status</th>
+                      ) : isSbaAttended ? (
+                        <>
+                          <th className="px-3 py-2 text-right font-semibold">Deliveries</th>
+                          <th className="px-3 py-2 text-right font-semibold">Attended by SBA</th>
+                          {showStatus && <th className="px-3 py-2 font-semibold">Status</th>}
+                        </>
                       ) : (
                         <>
                           <th className="px-3 py-2 text-right font-semibold">Value</th>
@@ -319,6 +347,23 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                               {d.display}
                             </span>
                           </td>
+                        ) : isSbaAttended ? (
+                          <>
+                            <td className="px-3 py-2 text-right text-text-soft">
+                              {d.sub ? d.sub.replace(/\s*deliveries$/i, '') : '—'}
+                            </td>
+                            <td
+                              className="px-3 py-2 text-right font-semibold"
+                              style={{ color: heatColor(d.value) }}
+                            >
+                              {d.display}
+                            </td>
+                            {showStatus && (
+                              <td className="px-3 py-2">
+                                <StatusPill status={statusFor(d.value, ind.inverse)} />
+                              </td>
+                            )}
+                          </>
                         ) : (
                           <>
                             <td
@@ -326,6 +371,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                               style={{ color: ind.inverse ? heatColor(100 - d.value) : heatColor(d.value) }}
                             >
                               {d.display}
+                              {d.sub && <span className="ml-1.5 text-[11px] font-normal text-muted">{d.sub}</span>}
                             </td>
                             {showStatus && (
                               <td className="px-3 py-2">

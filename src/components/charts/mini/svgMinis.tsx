@@ -1,4 +1,6 @@
 import { heatColor } from '@/data/calculations';
+import { CHART_GREEN, CHART_GREEN_SOFT } from '../palette';
+import { Sparkline } from '../Sparkline';
 
 /**
  * Lightweight HTML/CSS mini-visualizations for indicator cards.
@@ -19,12 +21,14 @@ const GHOST_SOFT = 'rgb(var(--c-border) / 0.3)';
 /* ------------------------------------------------------------------ *
  * Bullet chart: measure vs 100% target with Poor/Fair/Good bands.
  * ------------------------------------------------------------------ */
-export function MiniBullet({ pct, inverse, ghost }: { pct?: number; inverse?: boolean; ghost?: boolean }) {
+export function MiniBullet({ pct, ghost }: { pct?: number; inverse?: boolean; ghost?: boolean }) {
   const v = ghost ? 0 : Math.min(100, Math.max(0, pct ?? 0));
-  const color = ghost ? GHOST_FILL : heatColor(inverse ? 100 - v : v);
+  // The measure bar is the single brand green; the Poor/Fair/Good bands behind it
+  // still carry the performance reading.
+  const color = ghost ? GHOST_FILL : CHART_GREEN;
   return (
     <div aria-hidden={ghost}>
-      <div className="relative h-4 w-full overflow-hidden rounded">
+      <div className="relative h-7 w-full overflow-hidden rounded-md">
         {/* Qualitative bands: poor / fair / good */}
         <div className="absolute inset-0 flex">
           <span className="h-full bg-bg-elev-3" style={{ width: '33%' }} />
@@ -34,17 +38,17 @@ export function MiniBullet({ pct, inverse, ghost }: { pct?: number; inverse?: bo
         {/* Measure bar */}
         {!ghost && (
           <div
-            className="absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-r"
+            className="absolute left-0 top-1/2 h-3 -translate-y-1/2 rounded-r"
             style={{ width: `${Math.max(v, 1.5)}%`, background: color }}
           />
         )}
         {ghost && (
-          <div className="absolute left-0 top-1/2 h-1.5 w-2/5 -translate-y-1/2 rounded-r" style={{ background: GHOST_FILL }} />
+          <div className="absolute left-0 top-1/2 h-3 w-2/5 -translate-y-1/2 rounded-r" style={{ background: GHOST_FILL }} />
         )}
         {/* Target line at 100% */}
         <div className="absolute right-[1px] top-0 h-full w-[2px] rounded bg-text/50" />
       </div>
-      <div className="mt-1 flex justify-between text-[9.5px] font-semibold uppercase tracking-wide text-muted-2">
+      <div className="mt-1.5 flex justify-between text-[9.5px] font-semibold uppercase tracking-wide text-muted-2">
         <span>Poor</span>
         <span>Fair</span>
         <span>Good</span>
@@ -104,7 +108,7 @@ export function MiniCompositionBar({
 }) {
   return (
     <div aria-hidden={ghost}>
-      <div className="flex h-3.5 overflow-hidden rounded-full">
+      <div className="flex h-5 overflow-hidden rounded-full">
         {segments.map((s, i) => {
           const w = ghost ? 100 / segments.length : Math.max(s.pct ?? 0, 0);
           if (w <= 0) return null;
@@ -147,7 +151,7 @@ export function MiniPipeline({
   total,
   partLabel,
   totalLabel,
-  color = '#2E8B57',
+  color = CHART_GREEN,
 }: {
   part: number;
   total: number;
@@ -158,7 +162,7 @@ export function MiniPipeline({
   const pct = total > 0 ? Math.min(100, (part / total) * 100) : 0;
   return (
     <div>
-      <div className="relative h-4 w-full overflow-hidden rounded bg-bg-elev-3">
+      <div className="relative h-6 w-full overflow-hidden rounded-md bg-bg-elev-3">
         <div className="absolute left-0 top-0 h-full rounded-r" style={{ width: `${Math.max(pct, 1.5)}%`, background: color }} />
       </div>
       <div className="mt-1.5 flex items-center justify-between text-[10.5px] text-muted">
@@ -230,7 +234,7 @@ export function MiniRangeBar({
  * ------------------------------------------------------------------ */
 export function MiniFunnel({
   stages,
-  color = '#2E8B57',
+  color = CHART_GREEN,
 }: {
   stages: { label: string; pct: number }[];
   color?: string;
@@ -239,18 +243,19 @@ export function MiniFunnel({
   const first = stages[0]?.pct ?? 0;
   const last = stages[stages.length - 1]?.pct ?? 0;
   const retention = first > 0 ? Math.round((last / first) * 100) : 0;
+  // Both cascade stages use the single default brand green (distinguished by bar
+  // length + label), per the unified green standard.
   return (
     <div className="space-y-1.5">
-      {stages.map((s, i) => {
+      {stages.map((s) => {
         const w = (s.pct / max) * 100;
-        const shade = i === 0 ? color : heatColor(s.pct);
         return (
           <div key={s.label} className="flex items-center gap-2">
             <span className="w-12 flex-shrink-0 text-[10.5px] font-semibold text-muted">{s.label}</span>
             <div className="relative h-4 flex-1 overflow-hidden rounded bg-bg-elev-3/60">
               <div
                 className="h-full rounded-r"
-                style={{ width: `${Math.max(w, 2)}%`, background: shade, opacity: i === 0 ? 0.55 : 1 }}
+                style={{ width: `${Math.max(w, 2)}%`, background: color }}
               />
             </div>
             <span className="w-11 flex-shrink-0 text-right text-[11px] font-bold text-text">{s.pct}%</span>
@@ -272,22 +277,22 @@ export function MiniDeltaBar({ delta }: { delta: number }) {
   const clamped = Math.max(-100, Math.min(100, delta));
   const w = Math.abs(clamped) / 2; // % of full width (half-axis each side)
   const positive = delta >= 0;
-  const color = positive ? '#2E8B57' : '#C2562C';
+  const color = positive ? CHART_GREEN : '#C2562C';
   return (
     <div>
-      <div className="relative h-4 w-full overflow-hidden rounded bg-bg-elev-3/60">
+      <div className="relative h-7 w-full overflow-hidden rounded-md bg-bg-elev-3/60">
         <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-text/40" />
         <div
-          className="absolute top-1/2 h-2 -translate-y-1/2"
+          className="absolute top-1/2 h-3.5 -translate-y-1/2"
           style={{
             left: positive ? '50%' : `${50 - w}%`,
             width: `${Math.max(w, 1)}%`,
             background: color,
-            borderRadius: positive ? '0 3px 3px 0' : '3px 0 0 3px',
+            borderRadius: positive ? '0 4px 4px 0' : '4px 0 0 4px',
           }}
         />
       </div>
-      <div className="mt-1 flex justify-between text-[9.5px] font-semibold text-muted-2">
+      <div className="mt-1.5 flex justify-between text-[9.5px] font-semibold text-muted-2">
         <span>−100%</span>
         <span>0</span>
         <span>+100%</span>
@@ -323,53 +328,33 @@ export function MiniKpiStat({
   sub,
   deltaText,
   deltaDir,
-  columns,
-  columnLabels,
-  partialLastCol,
+  spark,
 }: {
   value: string;
   unit?: string;
   sub?: string;
   deltaText?: string;
   deltaDir?: 'up' | 'down';
-  /** Recent-period values rendered as a compact column trend under the number. */
-  columns?: number[];
-  columnLabels?: string[];
-  /** De-emphasise the final column (an incomplete/partial latest period). */
-  partialLastCol?: boolean;
+  /** Completed-period values drawn as a subtle contextual area sparkline. */
+  spark?: number[];
 }) {
   const up = deltaDir !== 'down';
-  const colMax = columns && columns.length ? Math.max(...columns, 1) : 1;
   return (
     <div className="flex w-full flex-col items-center justify-center text-center">
+      {/* The aggregate value is the unmistakable hero of the card. */}
       <div className="flex items-baseline justify-center gap-1.5">
-        <div className="text-[38px] font-extrabold leading-none text-text">{value}</div>
-        {unit && <div className="text-[11px] leading-snug text-muted">{unit}</div>}
+        <div className="text-[46px] font-extrabold leading-none tracking-tight text-text">{value}</div>
+        {unit && <div className="max-w-[92px] text-left text-[11px] leading-snug text-muted">{unit}</div>}
       </div>
       {deltaText && (
-        <div className={`mt-2 flex items-center gap-1 text-xs font-bold ${up ? 'text-brand-bright' : 'text-danger'}`}>
+        <div className={`mt-2.5 flex items-center gap-1 text-xs font-bold ${up ? 'text-brand-bright' : 'text-danger'}`}>
           <span>{up ? '▲' : '▼'}</span>
           {deltaText}
         </div>
       )}
-      {columns && columns.length > 1 && (
-        <div className="mt-3 flex h-12 items-end justify-center gap-[4px]">
-          {columns.map((v, i) => {
-            const isLast = i === columns.length - 1;
-            const dim = partialLastCol && isLast;
-            return (
-              <div
-                key={i}
-                className="w-3 rounded-t-sm"
-                title={columnLabels?.[i] ? `${columnLabels[i]}${dim ? ' (partial)' : ''}` : undefined}
-                style={{
-                  height: `${Math.max((v / colMax) * 100, 6)}%`,
-                  background: '#3D7BB5',
-                  opacity: dim ? 0.35 : isLast ? 1 : 0.55,
-                }}
-              />
-            );
-          })}
+      {spark && spark.length > 1 && (
+        <div className="mt-3 w-full max-w-[240px]">
+          <Sparkline data={spark} color={CHART_GREEN} height={40} />
         </div>
       )}
       {sub && <div className="mx-auto mt-2 max-w-[250px] text-[11px] leading-snug text-muted">{sub}</div>}
@@ -412,6 +397,46 @@ export function MiniCompareBars({
           {verdict}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Cause bars: a ranked part-to-whole breakdown (e.g. maternal-death causes)
+ * where ONE row is this card's focus. The focus row is the brand green; the
+ * rest are a muted secondary so the comparison reads at a glance. Replaces the
+ * per-card cause donut with a clearer, more comparable encoding.
+ * ------------------------------------------------------------------ */
+export function MiniCauseBars({
+  rows,
+  caption,
+}: {
+  rows: { label: string; value: number; primary?: boolean }[];
+  caption?: string;
+}) {
+  const max = Math.max(...rows.map((r) => r.value), 1);
+  return (
+    <div className="w-full space-y-2.5">
+      {rows.map((r) => (
+        <div key={r.label}>
+          <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px]">
+            <span className={r.primary ? 'font-bold text-text' : 'font-medium text-muted'}>{r.label}</span>
+            <span className={r.primary ? 'font-extrabold text-text' : 'font-semibold text-muted'}>{r.value}%</span>
+          </div>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-bg-elev-3">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.max((r.value / max) * 100, 1.5)}%`,
+                // Focus cause = solid brand green; the rest a lighter tint of the
+                // same green (in-family, no ash) so the focus still stands out.
+                background: r.primary ? CHART_GREEN : CHART_GREEN_SOFT,
+              }}
+            />
+          </div>
+        </div>
+      ))}
+      {caption && <div className="pt-0.5 text-[10px] text-muted-2">{caption}</div>}
     </div>
   );
 }

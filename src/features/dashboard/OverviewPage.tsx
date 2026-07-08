@@ -9,6 +9,7 @@ import { MapIndicatorPicker, type MapColorSelection } from '@/components/map/Map
 import { StateProfileModal } from '@/components/map/StateProfileModal';
 import { stateCompositeScore } from '@/components/map/stateProfile';
 import { RingProgress } from '@/components/charts/RingProgress';
+import { CHART_GREEN } from '@/components/charts/palette';
 import { IndicatorModal } from '@/components/dashboard/IndicatorModal';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
 import { useAsync } from '@/hooks/useAsync';
@@ -97,6 +98,15 @@ export function OverviewPage() {
     toast({ tone: 'info', title: `Scoped to ${state}`, description: 'All indicators now reflect this state.' });
   };
 
+  // Clear the map selection directly from the map (click the selected state again,
+  // or click empty space) — no trip through the General Filter needed.
+  const clearMapSelection = () => {
+    if (!filter.state) return;
+    const prev = filter.state;
+    setFilter({ state: '', zone: '', lga: '', ward: '', facility: '' });
+    toast({ tone: 'info', title: 'Selection cleared', description: `${prev} is no longer scoped.` });
+  };
+
   const goToBlock = (block: BlockName) => {
     navigate(BLOCK_ROUTES[block]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -131,6 +141,7 @@ export function OverviewPage() {
               selected={filter.state}
               highlight={highlight}
               onStateClick={setProfileState}
+              onClearSelection={clearMapSelection}
             />
             <div className="mt-3">
               <MapLegend />
@@ -211,7 +222,7 @@ function SnapshotCard({
       {/* The ring is the hero: centred both axes so it never sits in a corner. */}
       <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
         <div className="relative">
-          <RingProgress pct={goodness} size={124} thickness={5} />
+          <RingProgress pct={goodness} size={124} thickness={5} color={CHART_GREEN} />
           <span className="absolute inset-0 flex items-center justify-center text-[26px] font-extrabold text-text">
             {Math.round(goodness)}
           </span>

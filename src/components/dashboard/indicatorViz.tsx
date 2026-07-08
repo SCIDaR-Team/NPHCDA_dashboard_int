@@ -8,6 +8,7 @@ import {
   MiniZeroBar,
   MiniKpiStat,
   MiniCompareBars,
+  MiniCauseBars,
   GhostViz,
   type CompositionSegment,
 } from '@/components/charts/mini/svgMinis';
@@ -17,7 +18,8 @@ import {
   MiniStateBars,
   type MiniBarRow,
 } from '@/components/charts/mini/echartsMinis';
-import { stateMeasures, heatColor } from '@/data/calculations';
+import { CHART_GREEN, CHART_GREEN_SOFT, CHART_GREEN_FAINT, secondaryColor } from '@/components/charts/palette';
+import { stateMeasures } from '@/data/calculations';
 import { HIDE_ZERO_DISTRIBUTION_INDICATORS } from '@/data/scopedEngine';
 import { decodeHtml } from '@/lib/format';
 import type { Indicator, Split4, TrendSeries } from '@/data/types';
@@ -76,13 +78,8 @@ export interface VizSpec {
   ghostNote?: string;
 }
 
-const NEUTRAL_BAR = '#3D7BB5'; // counts are not graded good/bad
+const NEUTRAL_BAR = CHART_GREEN; // counts are a single category → one brand green
 
-const CAUSE_COLORS: Record<string, string> = {
-  PPH: '#C2562C',
-  'Pre-eclampsia/eclampsia': '#C9A227',
-  Sepsis: '#7A4FA8',
-};
 const CAUSE_INDICATORS: Record<string, string> = {
   PPH: 'Proportion of maternal deaths resulting from PPH',
   'Pre-eclampsia/eclampsia': 'Proportion of maternal deaths resulting from pre-eclampsia/eclampsia',
@@ -199,11 +196,8 @@ const EMBEDS_VALUE = new Set<VizKind>([
   'rateBar',
 ]);
 
-/** Distinct-but-harmonious hues so each state's bar reads as its own. */
-const STATE_PALETTE = ['#3D7BB5', '#2E8B57', '#C9A227', '#C2562C', '#7A4FA8', '#2A9D8F', '#D1495B', '#5B7089'];
-
-/** Radial (saturation %) rings use a fixed brand colour, not the heat scale. */
-const RADIAL_COLOR = '#3D7BB5';
+/** Radial (saturation %) rings use the single brand green, not the heat scale. */
+const RADIAL_COLOR = CHART_GREEN;
 
 /** Rate-bar context (scale + published benchmark) for the two mortality ratios. */
 const RATE_CFG: Record<
@@ -321,11 +315,13 @@ function numberIn(display: string): number | null {
   return m ? parseFloat(m[0]) : null;
 }
 
+// Functional status is a composition: L2 (the fully-functional class) is the
+// primary green; L1 the lighter green; partial/non-functional the fixed secondary.
 const SPLIT4_SEGMENTS = (s: Split4): CompositionSegment[] => [
-  { label: 'L2', pct: s.l2, color: '#2E8B57' },
-  { label: 'L1', pct: s.l1, color: '#6FA888' },
-  { label: 'Partial', pct: s.partial, color: '#C9A227' },
-  { label: 'Non-functional', pct: s.nonfunc, color: '#C2562C' },
+  { label: 'L2', pct: s.l2, color: CHART_GREEN },
+  { label: 'L1', pct: s.l1, color: CHART_GREEN_SOFT },
+  { label: 'Partial', pct: s.partial, color: secondaryColor(1) },
+  { label: 'Non-functional', pct: s.nonfunc, color: secondaryColor(3) },
 ];
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
@@ -378,10 +374,10 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
       if (!rows.length) return <MiniBullet pct={ind.pct} inverse={ind.inverse} />;
       return (
         <div>
+          {/* Ranked states are a single category → one brand green for every bar. */}
           <MiniStateBars
             rows={rows}
-            neutralColor={naira ? NEUTRAL_BAR : undefined}
-            paletteColors={naira ? undefined : STATE_PALETTE}
+            neutralColor={NEUTRAL_BAR}
             highlight={highlightState}
             formatter={naira ? fmtNairaCompact : fmtCountCompact}
           />
@@ -404,23 +400,12 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
 
     case 'radial':
       return (
-        <div className="flex w-full flex-col items-center justify-center gap-2 text-center">
+        <div className="flex w-full flex-col items-center justify-center text-center">
           <div className="relative">
-            <RingProgress pct={ind.inverse ? 100 - ind.pct : ind.pct} size={124} thickness={5} color={RADIAL_COLOR} />
-            <span className="absolute inset-0 flex items-center justify-center text-[26px] font-extrabold text-text">
+            <RingProgress pct={ind.inverse ? 100 - ind.pct : ind.pct} size={176} thickness={6} color={RADIAL_COLOR} />
+            <span className="absolute inset-0 flex items-center justify-center text-[34px] font-extrabold text-text">
               {round1(ind.pct)}%
             </span>
-          </div>
-          <div className="mx-auto max-w-[220px] text-[11px] leading-snug text-muted">
-            {ind.pct >= 99.5 ? (
-              <>
-                <b className="text-text-soft">At ceiling.</b> Read with the source caveat in the info note.
-              </>
-            ) : (
-              <>
-                of the <b className="text-text-soft">100%</b> target
-              </>
-            )}
           </div>
         </div>
       );
@@ -428,11 +413,12 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
     case 'donutBinary': {
       const [yes, no] = spec.donutLabels ?? ['Yes', 'No'];
       const p = round1(ind.pct);
+      // Two categories: primary (yes) = brand green, remainder = faint green.
       return (
         <MiniDonut
           segments={[
-            { name: yes, value: p, color: heatColor(ind.inverse ? 100 - p : p) },
-            { name: no, value: round1(100 - p), color: 'rgba(194,86,44,0.5)' },
+            { name: yes, value: p, color: CHART_GREEN },
+            { name: no, value: round1(100 - p), color: CHART_GREEN_FAINT },
           ]}
           centerText={`${p}%`}
           centerSub={yes}
@@ -442,11 +428,12 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
 
     case 'donutFp': {
       const p = round1(ind.pct);
+      // Two categories: primary (modern) = brand green, secondary = lighter green.
       return (
         <MiniDonut
           segments={[
-            { name: 'Modern methods', value: p, color: '#2E8B57' },
-            { name: 'Other methods', value: round1(100 - p), color: 'rgba(122,79,168,0.55)' },
+            { name: 'Modern methods', value: p, color: CHART_GREEN },
+            { name: 'Other methods', value: round1(100 - p), color: CHART_GREEN_SOFT },
           ]}
           centerText={`${p}%`}
           centerSub="Modern methods"
@@ -455,29 +442,23 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
     }
 
     case 'donutCause': {
+      // Ranked cause bars (replaces the redundant per-card donut): every card shows
+      // the same maternal-death cause breakdown, with THIS card's cause the primary
+      // green bar and the others a muted secondary — comparison reads instantly.
       const own = spec.cause!;
-      const segments = Object.entries(CAUSE_INDICATORS)
+      const rows = Object.entries(CAUSE_INDICATORS)
         .map(([label, indName]) => {
           const sib = label === own ? ind : siblings[indName];
           if (!sib || sib.pct <= 0) return null;
-          return {
-            name: label,
-            value: round1(sib.pct),
-            color: CAUSE_COLORS[label],
-            dim: label !== own,
-          };
+          return { label, value: round1(sib.pct), primary: label === own };
         })
-        .filter((s): s is NonNullable<typeof s> => !!s);
-      const known = segments.reduce((a, s) => a + s.value, 0);
+        .filter((r): r is { label: string; value: number; primary: boolean } => !!r)
+        .sort((a, b) => b.value - a.value);
+      const known = rows.reduce((a, r) => a + r.value, 0);
       if (known < 100) {
-        segments.push({
-          name: 'Other causes',
-          value: round1(100 - known),
-          color: 'rgba(128,138,150,0.35)',
-          dim: true,
-        });
+        rows.push({ label: 'Other causes', value: round1(100 - known), primary: false });
       }
-      return <MiniDonut segments={segments} centerText={`${round1(ind.pct)}%`} centerSub={own} />;
+      return <MiniCauseBars rows={rows} caption="Share of recorded maternal deaths" />;
     }
 
     case 'gauge':
@@ -526,11 +507,16 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
         <MiniKpiStat
           value={decodeHtml(ind.value)}
           unit={unit}
-          sub={partialLast ? 'Bars: recent monthly volume — final month still reporting.' : 'Bars: recent monthly volume.'}
+          sub={
+            partialLast
+              ? 'Recent monthly volume — final month still reporting.'
+              : 'Recent monthly volume.'
+          }
           deltaText={deltaText}
           deltaDir={deltaDir}
-          columns={recent}
-          partialLastCol={partialLast}
+          // Draw the sparkline over completed months only, so the incomplete latest
+          // month doesn't dent the trend line (it's still counted in the headline).
+          spark={stable}
         />
       );
     }
@@ -565,7 +551,7 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
           <MiniCompareBars
             rows={[
               { label: 'Facility-based (national)', value: v, color: cfg.color },
-              { label: cfg.benchmarkLabel ?? 'Target', value: cfg.benchmark, color: '#2E8B57' },
+              { label: cfg.benchmarkLabel ?? 'Target', value: cfg.benchmark, color: CHART_GREEN },
             ]}
             unit={cfg.unit}
             verdict={
@@ -623,7 +609,8 @@ function GhostIndicatorViz({ indicator: ind, spec }: { indicator: Indicator; spe
       case 'radial':
         return (
           <div className="flex w-full flex-col items-center justify-center gap-2 text-center">
-            <RingProgress pct={0} size={124} thickness={5} color={RADIAL_COLOR} />
+            {/* Ghost ring stays fully muted (no brand colour) so it reads as pending. */}
+            <RingProgress pct={0} size={140} thickness={5} color="rgb(128,138,150)" />
             <span className="text-[11px] text-muted-2">Coverage % once connected</span>
           </div>
         );

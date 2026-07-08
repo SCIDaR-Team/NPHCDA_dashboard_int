@@ -20,6 +20,9 @@ interface NigeriaMapProps {
   highlight?: string[] | null;
   /** Click a state (opens its cross-block profile in the Overview). */
   onStateClick?: (state: string) => void;
+  /** Clear the current state selection — fired by clicking the already-selected
+   *  state again, or clicking empty space on the map. */
+  onClearSelection?: () => void;
 }
 
 interface DonorMarkerProps {
@@ -43,7 +46,7 @@ function DonorMarker({ cx, cy, donor }: DonorMarkerProps) {
   return null;
 }
 
-export function NigeriaMap({ values, selected, highlight, onStateClick }: NigeriaMapProps) {
+export function NigeriaMap({ values, selected, highlight, onStateClick, onClearSelection }: NigeriaMapProps) {
   const [hover, setHover] = useState<{ state: string; x: number; y: number } | null>(null);
   // Subscribe to the theme so the map recolours on dark/light toggle; the neutral
   // surfaces (no-data fill, inter-state stroke, label halo) come from theme tokens.
@@ -62,6 +65,11 @@ export function NigeriaMap({ values, selected, highlight, onStateClick }: Nigeri
         style={{ maxHeight: 400 }}
         role="img"
         aria-label="Nigeria states performance map"
+        // A click that lands on empty map space (not on a state path) clears the
+        // current selection — no need to reopen the General Filter to reset.
+        onClick={(e) => {
+          if (e.target === e.currentTarget && selected) onClearSelection?.();
+        }}
       >
         {Object.entries(STATE_PATHS).map(([state, d]) => {
           const v = values[state];
@@ -86,7 +94,13 @@ export function NigeriaMap({ values, selected, highlight, onStateClick }: Nigeri
                 setHover({ state, x: e.clientX - rect.left, y: e.clientY - rect.top });
               }}
               onMouseLeave={() => setHover(null)}
-              onClick={() => onStateClick?.(state)}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Clicking the already-selected state toggles it off; any other
+                // state opens its profile as before.
+                if (isSel) onClearSelection?.();
+                else onStateClick?.(state);
+              }}
             />
           );
         })}
@@ -139,7 +153,9 @@ export function NigeriaMap({ values, selected, highlight, onStateClick }: Nigeri
             )}
             {STATE_DONORS[hover.state]?.length ? ` · ${STATE_DONORS[hover.state].join(', ')}` : ''}
           </div>
-          <div className="mt-0.5 text-[10px] text-muted-2">Click for full profile</div>
+          <div className="mt-0.5 text-[10px] text-muted-2">
+            {selected === hover.state ? 'Click to clear selection' : 'Click for full profile'}
+          </div>
         </div>
       )}
     </div>

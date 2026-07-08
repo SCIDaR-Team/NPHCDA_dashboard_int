@@ -32,16 +32,18 @@ export function useChartTheme(): ChartTheme {
     tooltipBg: cssVar('--c-bg-elev'),
     tooltipBorder: cssVar('--c-border'),
     brand: cssVar('--c-green'),
+    // Brand green first (primary category), then the fixed secondary palette —
+    // kept in sync with src/components/charts/palette.ts.
     palette: [
-      '#38BDF8',
-      '#1B5E3A',
-      '#2E8B57',
-      '#C9A227',
-      '#6FA888',
-      '#8a6d12',
-      '#C2562C',
+      '#00A859',
       '#3D7BB5',
+      '#C9A227',
       '#7A4FA8',
+      '#C2562C',
+      '#5B7089',
+      '#2A9D8F',
+      '#6FC69B',
+      '#8a6d12',
     ],
   };
 }

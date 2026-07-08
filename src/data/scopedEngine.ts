@@ -30,6 +30,8 @@ export interface ScopedMeasure {
   /** Real numeric magnitude for ranking/bar length when the display string isn't a
    *  plain number (e.g. a category label). Optional; parsed from `value` otherwise. */
   num?: number;
+  /** Optional secondary figure (e.g. delivery count behind a proportion) for the deep-dive. */
+  sub?: string;
 }
 
 /** The compact per-source fact table the ETL emits (slim records + normalised type). */

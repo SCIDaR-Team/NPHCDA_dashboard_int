@@ -329,8 +329,12 @@ export function buildIndicators(srh, sfm, sheet, mamii = { records: [] }, pfmo =
   // is no valid SRH numerator. SFM has a real per-facility field for this.
   const sbaDelivDen = sum(sfm.records, (r) => r.deliveries);
   const sbaAttendedPct = ratioPct(sum(sfm.records, (r) => r.sbaAttendedDeliveries), sbaDelivDen);
+  // `sub` carries the delivery COUNT (the denominator) so the deep-dive can show the
+  // volume behind the proportion per state / per facility, without cluttering the
+  // headline % on the cards.
   put('Proportion of deliveries attended by a skilled birth attendant', sbaAttendedPct, sbaAttendedPct == null ? null : pctStr(sbaAttendedPct), {
     n: sfm.records.length,
+    sub: sbaAttendedPct == null ? undefined : `${fmtCount(sbaDelivDen)} deliveries`,
     meta: 'SFM ODK only: deliveries attended by a skilled birth attendant ÷ total facility deliveries. SRH ODK has no equivalent field — its "SBA" questions are staffing counts, not attended-delivery counts. Near-ceiling: in the latest submission per facility, 374 of 382 facilities report the two counts as identical.',
   });
 

@@ -17,9 +17,14 @@ export const FD_COLUMNS: FacilityColumn[] = [
 /** Facility-matrix columns with no real source yet — rendered as "No data". */
 export const FD_NO_DATA_COLUMNS = new Set(['satisfaction']);
 
-/** Trend series colours (cycled across whichever real series the snapshot emits). */
+/**
+ * Trend series colours (cycled across whichever real series the snapshot emits).
+ * Leads with the brand green (CHART_GREEN) so the first/primary series always
+ * reads green, then the fixed secondary palette (CHART_SECONDARY) — kept in sync
+ * with src/components/charts/palette.ts.
+ */
 export const trendColors: string[] = [
-  '#38BDF8', '#1B5E3A', '#2E8B57', '#C9A227', '#6FA888', '#8a6d12', '#C2562C', '#3D7BB5', '#7A4FA8',
+  '#00A859', '#3D7BB5', '#C9A227', '#7A4FA8', '#C2562C', '#5B7089', '#2A9D8F', '#6FC69B', '#8a6d12',
 ];
 
 /** Series switched on by default when the Trend page first loads (by name match). */
