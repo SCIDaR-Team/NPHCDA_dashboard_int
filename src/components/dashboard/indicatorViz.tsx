@@ -487,11 +487,10 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
       // history falls back to the plain stat.
       const series = spec.trendKey && trends ? trends[spec.trendKey] : undefined;
       const vals = (series ?? []).filter((v): v is number => v != null);
-      const unit = scoped ? 'deliveries · current scope' : 'deliveries · latest month';
-      if (!vals.length) return <MiniKpiStat value={decodeHtml(ind.value)} unit={unit} />;
+      if (!vals.length) return <MiniKpiStat value={decodeHtml(ind.value)} boxed />;
       const recent = vals.slice(-6);
-      // The latest month is often still reporting — flag it so it isn't misread
-      // as a real collapse, and compute the trend delta over completed months only.
+      // The latest month is often still reporting — flag it so the delta isn't
+      // misread as a real collapse; compute it over completed months only.
       const priorMed = median(recent.slice(0, -1));
       const partialLast = recent.length >= 3 && recent[recent.length - 1] < 0.4 * priorMed;
       const stable = partialLast ? recent.slice(0, -1) : recent;
@@ -503,22 +502,8 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
         deltaDir = diff >= 0 ? 'up' : 'down';
         deltaText = `${diff >= 0 ? '+' : ''}${round1(pctChange)}% across recent months`;
       }
-      return (
-        <MiniKpiStat
-          value={decodeHtml(ind.value)}
-          unit={unit}
-          sub={
-            partialLast
-              ? 'Recent monthly volume — final month still reporting.'
-              : 'Recent monthly volume.'
-          }
-          deltaText={deltaText}
-          deltaDir={deltaDir}
-          // Draw the sparkline over completed months only, so the incomplete latest
-          // month doesn't dent the trend line (it's still counted in the headline).
-          spark={stable}
-        />
-      );
+      // The headline aggregate sits centred in its own inner card (no trend line).
+      return <MiniKpiStat value={decodeHtml(ind.value)} deltaText={deltaText} deltaDir={deltaDir} boxed />;
     }
 
     case 'funnel': {

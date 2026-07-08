@@ -329,6 +329,7 @@ export function MiniKpiStat({
   deltaText,
   deltaDir,
   spark,
+  boxed,
 }: {
   value: string;
   unit?: string;
@@ -337,20 +338,35 @@ export function MiniKpiStat({
   deltaDir?: 'up' | 'down';
   /** Completed-period values drawn as a subtle contextual area sparkline. */
   spark?: number[];
+  /** Render the headline value inside its own inner card (an emphasised stat tile). */
+  boxed?: boolean;
 }) {
   const up = deltaDir !== 'down';
-  return (
-    <div className="flex w-full flex-col items-center justify-center text-center">
-      {/* The aggregate value is the unmistakable hero of the card. */}
+
+  // The headline value + unit + delta — the unmistakable hero of the card.
+  const headline = (
+    <>
       <div className="flex items-baseline justify-center gap-1.5">
         <div className="text-[46px] font-extrabold leading-none tracking-tight text-text">{value}</div>
         {unit && <div className="max-w-[92px] text-left text-[11px] leading-snug text-muted">{unit}</div>}
       </div>
       {deltaText && (
-        <div className={`mt-2.5 flex items-center gap-1 text-xs font-bold ${up ? 'text-brand-bright' : 'text-danger'}`}>
+        <div className={`mt-2.5 flex items-center justify-center gap-1 text-xs font-bold ${up ? 'text-brand-bright' : 'text-danger'}`}>
           <span>{up ? '▲' : '▼'}</span>
           {deltaText}
         </div>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex w-full flex-col items-center justify-center text-center">
+      {boxed ? (
+        <div className="w-full max-w-[280px] rounded-xl border border-border-soft bg-bg-elev-2/70 px-5 py-6">
+          {headline}
+        </div>
+      ) : (
+        headline
       )}
       {spark && spark.length > 1 && (
         <div className="mt-3 w-full max-w-[240px]">
