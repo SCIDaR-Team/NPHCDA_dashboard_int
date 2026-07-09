@@ -8,4 +8,6 @@ export { Tooltip } from './Tooltip';
 export { Input, Select, FieldLabel } from './Field';
 export { Combobox } from './Combobox';
 export type { ComboOption } from './Combobox';
+export { MultiSelectDropdown, GroupedDropdownBar } from './MultiSelectDropdown';
+export type { DropdownGroup, DropdownItem } from './MultiSelectDropdown';
 export { Spinner, Skeleton, EmptyState, ErrorState } from './Feedback';

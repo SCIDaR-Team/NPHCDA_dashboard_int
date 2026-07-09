@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EChartsOption } from 'echarts';
 import { PageHeader } from '@/components/dashboard/PageHeader';
-import { SectionBlock, ErrorState, Skeleton } from '@/components/ui';
+import { ErrorState, Skeleton, GroupedDropdownBar, type DropdownGroup } from '@/components/ui';
 import { EChart } from '@/components/charts/EChart';
 import { lineOption, type LineParams } from '@/components/charts/chartBase';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
 import { useChartTheme } from '@/components/charts/chartTheme';
 import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
-import { trendColors, defaultsOn } from '@/data/config';
+import { trendColors, defaultsOn, TREND_GROUPS } from '@/data/config';
 import {
   monthlyToQuarterly,
   monthlyToYearly,
@@ -51,6 +51,32 @@ export function TrendPage() {
   const [checked, setChecked] = useState<Set<string>>(new Set(defaultsOn));
 
   const names = trendSeries ? Object.keys(trendSeries) : [];
+
+  // Checkboxes are grouped by measure family (organisational only). The colour index
+  // is still taken from a series' position in the FULL list, so a grouped pill keeps
+  // the same colour as its line on the chart. Series not listed in TREND_GROUPS fall
+  // into an "Other" bucket, so a new snapshot series never vanishes from the picker.
+  const groupedNames = (() => {
+    const assigned = new Set<string>();
+    const groups = TREND_GROUPS.map((g) => {
+      const series = g.series.filter((s) => names.includes(s));
+      series.forEach((s) => assigned.add(s));
+      return { label: g.label, series };
+    }).filter((g) => g.series.length);
+    const other = names.filter((n) => !assigned.has(n));
+    if (other.length) groups.push({ label: 'Other', series: other });
+    return groups;
+  })();
+
+  // Same groups, shaped for the compact dropdown (each pill keeps its line colour).
+  const trendDropdownGroups: DropdownGroup[] = groupedNames.map((g) => ({
+    label: g.label,
+    items: g.series.map((name) => ({
+      key: name,
+      label: name,
+      color: trendColors[names.indexOf(name) % trendColors.length],
+    })),
+  }));
 
   // Whatever the source, make sure a sensible set of series starts selected —
   // the mock defaults won't exist under a live snapshot with different series.
@@ -154,49 +180,47 @@ export function TrendPage() {
   if (error) return <ErrorState message={error} onRetry={reload} />;
 
   return (
-    <div>
+    // Fixed-height page: header + controls + chart fill the viewport so the chart
+    // flexes to the available space and the page never needs to scroll.
+    <div className="flex h-[calc(100dvh-7rem)] min-h-[460px] flex-col">
       <PageHeader
         title="Trend Analysis"
         subtitle="Compare indicators month-by-month, or rolled up to quarters or years. Indexed mode lets indicators with different units share one axis."
         actions={<ExportMenu filename="nphcda-trends" rows={exportRows} captureRef={chartRef} />}
       />
 
-      <SectionBlock title="Compare indicators over time">
+      {/* Not a SectionBlock: this card must NOT clip its children so the group
+          dropdowns can overflow it. It flexes to fill the remaining height. */}
+      <div className="flex min-h-0 flex-1 flex-col rounded-card border border-border bg-bg-elev shadow-card">
+        <div className="flex items-center gap-2.5 border-b border-border-soft px-5 py-3.5">
+          <span className="h-[18px] w-1 flex-shrink-0 rounded-sm bg-brand" />
+          <h2 className="text-[14.5px] font-bold text-text">Compare indicators over time</h2>
+        </div>
+
         {loading ? (
-          <Skeleton className="h-[420px]" />
+          <div className="flex-1 p-5">
+            <Skeleton className="h-full" />
+          </div>
         ) : (
-          <>
-            <div className="mb-3">
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-2">
-                  Indicators ({checked.size} of {names.length})
+          <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-2">
+                Indicators ({checked.size} of {names.length})
+              </span>
+              <GroupedDropdownBar
+                groups={trendDropdownGroups}
+                isChecked={(k) => checked.has(k)}
+                onToggle={toggle}
+                panelWidth="w-80"
+              />
+              {scopeChip && (
+                <span className="rounded-full border border-brand/40 bg-brand/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-bright">
+                  Scoped · {scopeChip}
                 </span>
-                {scopeChip && (
-                  <span className="rounded-full border border-brand/40 bg-brand/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-bright">
-                    Scoped · {scopeChip}
-                  </span>
-                )}
-              </div>
-              <div className="flex max-h-32 flex-wrap gap-x-4 gap-y-2 overflow-y-auto rounded-lg border border-border bg-bg-elev-2/40 p-3">
-                {names.map((name) => {
-                  const idx = names.indexOf(name);
-                  return (
-                    <label key={name} className="flex cursor-pointer items-center gap-1.5 text-xs text-text-soft">
-                      <input
-                        type="checkbox"
-                        checked={checked.has(name)}
-                        onChange={() => toggle(name)}
-                        className="h-3.5 w-3.5 accent-brand"
-                      />
-                      <span className="h-2 w-2 rounded-full" style={{ background: trendColors[idx % trendColors.length] }} />
-                      {name}
-                    </label>
-                  );
-                })}
-              </div>
+              )}
             </div>
 
-            <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Segmented value={gran} onChange={(v) => setGran(v as Gran)} options={[
                 ['monthly', 'Monthly'],
                 ['quarterly', 'Quarterly'],
@@ -212,10 +236,10 @@ export function TrendPage() {
               </label>
             </div>
 
-            <div ref={chartRef}>{option && <EChart option={option} height={400} />}</div>
-          </>
+            <div ref={chartRef} className="min-h-0 flex-1">{option && <EChart option={option} height="100%" />}</div>
+          </div>
         )}
-      </SectionBlock>
+      </div>
     </div>
   );
 }

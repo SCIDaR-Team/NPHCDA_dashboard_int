@@ -28,11 +28,30 @@ export interface PfmoFacilityRow {
   penta3: number;
   /** Penta 3 completion (%) = penta3 ÷ penta1, or null when no Penta1 was reported. */
   penta3Pct: number | null;
+  /**
+   * Facility readiness — the share of this facility's *reporting months* in which it
+   * reported the full set (indicators #17 / #27 / #47). Null when the facility never
+   * reported that family, so a gap never reads as a 0%. These are the only per-facility
+   * view of these three PFMO measures in the app (the Indicator modal excludes PFMO).
+   */
+  tracer6Pct: number | null;
+  equip5Pct: number | null;
+  svc6Pct: number | null;
 }
 
 /** Aggregate PFMO facility-month rows into a one-row-per-facility registry. */
+/** Running readiness tallies (reported-months and full-set-months per family). */
+interface ReadinessAcc {
+  commRep: number;
+  tracer6: number;
+  equipRep: number;
+  equip5: number;
+  svcRep: number;
+  svc6: number;
+}
+
 function aggregate(rows: EngineRecord[]): PfmoFacilityRow[] {
-  const byKey = new Map<string, PfmoFacilityRow & { _months: Set<string> }>();
+  const byKey = new Map<string, PfmoFacilityRow & { _months: Set<string>; _rd: ReadinessAcc }>();
   for (const r of rows) {
     if (!r.facility) continue;
     const full = String(r.facility);
@@ -56,7 +75,11 @@ function aggregate(rows: EngineRecord[]): PfmoFacilityRow[] {
         penta1: 0,
         penta3: 0,
         penta3Pct: null,
+        tracer6Pct: null,
+        equip5Pct: null,
+        svc6Pct: null,
         _months: new Set<string>(),
+        _rd: { commRep: 0, tracer6: 0, equipRep: 0, equip5: 0, svcRep: 0, svc6: 0 },
       };
       byKey.set(key, f);
     }
@@ -66,13 +89,22 @@ function aggregate(rows: EngineRecord[]): PfmoFacilityRow[] {
     f.penta1 += r.penta1 || 0;
     f.penta3 += r.penta3 || 0;
     if (r.month) f._months.add(String(r.month));
+    // Readiness: count reporting months and full-set months per commodity/equipment/service family.
+    if ((r as any).commReported) { f._rd.commRep++; if ((r as any).tracer6) f._rd.tracer6++; }
+    if ((r as any).equipReported) { f._rd.equipRep++; if ((r as any).equip5) f._rd.equip5++; }
+    if ((r as any).svcReported) { f._rd.svcRep++; if ((r as any).svc6) f._rd.svc6++; }
   }
   const out: PfmoFacilityRow[] = [];
+  const share = (part: number, whole: number): number | null => (whole ? Math.round((part / whole) * 100) : null);
   for (const f of byKey.values()) {
     f.months = f._months.size;
     f.penta3Pct = f.penta1 ? Math.round((f.penta3 / f.penta1) * 100) : null;
-    const { _months, ...row } = f;
+    f.tracer6Pct = share(f._rd.tracer6, f._rd.commRep);
+    f.equip5Pct = share(f._rd.equip5, f._rd.equipRep);
+    f.svc6Pct = share(f._rd.svc6, f._rd.svcRep);
+    const { _months, _rd, ...row } = f;
     void _months;
+    void _rd;
     out.push(row);
   }
   return out;

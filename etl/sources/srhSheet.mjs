@@ -12,7 +12,10 @@ import Papa from 'papaparse';
 import { normState, titleCase, cleanName, zoneForState, donorsForState } from '../lib/states.mjs';
 import { num } from '../lib/util.mjs';
 
-const CSV_URL =
+// Published-CSV URL. No auth (public export), so this is config, not a secret:
+// override via SRH_SHEET_URL in etl/.env.etl if the sheet is ever republished.
+// Falls back to the known baseline export when the env var is unset.
+const DEFAULT_CSV_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vSS_3zLjUES9KRAYisIp8TODjs_RFY80HfH6hB-P9ixDFqhvhb5RQxtluq4ukc6IBc4Bz0x1ILg72TF/pub?gid=1896360197&single=true&output=csv';
 
 // Exact header strings for the SBA availability counts (type-appropriate).
@@ -69,7 +72,10 @@ function flatten(row) {
 }
 
 export async function loadSrhSheet() {
-  const res = await fetch(CSV_URL);
+  // Resolved here (not at module load) so etl/.env.etl — read by loadEnv() at
+  // runtime — can override the URL. Empty/unset falls back to the default.
+  const url = process.env.SRH_SHEET_URL || DEFAULT_CSV_URL;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Google Sheet ${res.status} ${res.statusText}`);
   const text = await res.text();
   const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });

@@ -1,17 +1,19 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Layers, RotateCcw } from 'lucide-react';
 import { PageHeader } from '@/components/dashboard/PageHeader';
-import { SectionBlock, Badge, Input, Select, EmptyState } from '@/components/ui';
+import { SectionBlock, Badge, Input, Select, EmptyState, GroupedDropdownBar, type DropdownGroup } from '@/components/ui';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { getDataSource } from '@/data/datasource';
 import { useAsync } from '@/hooks/useAsync';
 import { useSnapshotStore } from '@/store/snapshotStore';
-import { FD_COLUMNS, FD_NO_DATA_COLUMNS } from '@/data/config';
+import { FD_COLUMNS, FD_NO_DATA_COLUMNS, FD_COLUMN_GROUPS } from '@/data/config';
+import { facilityMeasures, heatColor } from '@/data/calculations';
 import { pfmoRegistry, type PfmoFacilityRow } from '@/data/pfmoRegistry';
+import type { ScopedMeasure } from '@/data/scopedEngine';
 import { ZONE_OF_STATE, STATE_DONORS } from '@/data/geo/states';
 import { cn } from '@/lib/cn';
-import type { FacilityRow, FilterState } from '@/data/types';
+import type { FacilityColumn, FacilityRow, FilterState } from '@/data/types';
 
 /**
  * The Facility Deepdive serves two DISTINCT facility universes:
@@ -55,11 +57,54 @@ function statusTone(status: string) {
   return 'poor' as const;
 }
 
-/** Real numeric value for an assessed column, or null when the column has no live source. */
+/** Real numeric value for a plain roster column, or null when it has no live source. */
 function numericValue(row: FacilityRow, key: string): number | null {
   if (FD_NO_DATA_COLUMNS.has(key)) return null;
   const raw = (row as any)[key];
   return typeof raw === 'number' ? raw : null;
+}
+
+/** Per-facility engine key — matches facilityMeasures' `state|lga|facility` keying. */
+const facKey = (r: FacilityRow): string => `${r.state}|${r.lga}|${r.facility}`;
+
+/** First number in a display string, honouring ₦/k/m/bn suffixes (mirrors the
+ *  Indicator modal), so counts, percents and ₦ amounts sort by real magnitude. */
+function magnitudeOf(display: string, pct: number): number {
+  const s = String(display).replace(/,/g, '');
+  const m = s.match(/-?\d+(?:\.\d+)?/);
+  if (!m) return pct;
+  let n = parseFloat(m[0]);
+  const after = s.slice((m.index ?? 0) + m[0].length);
+  if (/^\s*bn/i.test(after)) n *= 1e9;
+  else if (/^\s*m/i.test(after)) n *= 1e6;
+  else if (/^\s*k/i.test(after)) n *= 1e3;
+  return n;
+}
+
+/** A resolved indicator-backed cell (or null when this facility has no measurement). */
+interface IndicatorCell {
+  num: number;
+  display: string;
+  pct: number;
+}
+function indicatorCell(
+  maps: Record<string, Record<string, ScopedMeasure>>,
+  col: FacilityColumn,
+  row: FacilityRow
+): IndicatorCell | null {
+  const m = maps[col.key]?.[facKey(row)];
+  if (!m) return null;
+  return { num: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, pct: m.pct };
+}
+
+/** Columns rendered left-aligned (categorical badges); the rest are right-aligned numbers. */
+const leftAligned = (c: FacilityColumn): boolean => c.key === 'type' || c.key === 'status' || c.fmt === 'bool';
+
+/** Plain-text form of an indicator cell (for CSV export and the Yes/No badge). */
+function cellText(col: FacilityColumn, cell: IndicatorCell): string {
+  if (col.fmt === 'bool') return cell.pct >= 50 ? 'Yes' : 'No';
+  if (col.fmt === 'naira') return cell.display.replace(/\s*received$/i, '');
+  return cell.display; // count ("1,234") / pct ("95%") already formatted by the engine
 }
 
 type SortKey = 'state' | 'lga' | 'facility' | string;
@@ -69,13 +114,28 @@ type SortDir = 'asc' | 'desc';
 const PAGE_SIZE = 50;
 
 /** Fixed metric columns for the PFMO registry mode (no toggle pills — all real). */
-const REGISTRY_COLUMNS: { key: string; label: string }[] = [
-  { key: 'penta3Pct', label: 'Penta 3 %' },
-  { key: 'livebirths', label: 'Live births' },
-  { key: 'maternalDeaths', label: 'Maternal deaths' },
-  { key: 'under5Deaths', label: 'Under-5 deaths' },
-  { key: 'months', label: 'Months reported' },
+const REGISTRY_COLUMNS: { key: string; label: string; group: string }[] = [
+  { key: 'penta3Pct', label: 'Penta 3 %', group: 'Immunization' },
+  { key: 'livebirths', label: 'Live births', group: 'Maternal & child health' },
+  { key: 'maternalDeaths', label: 'Maternal deaths', group: 'Maternal & child health' },
+  { key: 'under5Deaths', label: 'Under-5 deaths', group: 'Maternal & child health' },
+  { key: 'tracer6Pct', label: 'Tracer 6/6 %', group: 'Facility readiness' },
+  { key: 'equip5Pct', label: 'Equipment 5/5 %', group: 'Facility readiness' },
+  { key: 'svc6Pct', label: 'Essential services 6/6 %', group: 'Facility readiness' },
+  { key: 'months', label: 'Months reported', group: 'Reporting coverage' },
 ];
+
+/** Toggle-pill group order for the registry column picker (each name describes its
+ *  indicators; table columns render in this order too). */
+const REGISTRY_COLUMN_GROUPS = ['Immunization', 'Maternal & child health', 'Facility readiness', 'Reporting coverage'];
+
+/** Registry columns that are a percentage which gaps to "No data" (never a false 0). */
+const REGISTRY_PCT_KEYS = new Set(['penta3Pct', 'tracer6Pct', 'equip5Pct', 'svc6Pct']);
+
+/** First readiness column — carries a thin left divider to separate service flows
+ *  from the readiness group (organisational only). */
+const REGISTRY_READINESS_START = 'tracer6Pct';
+const registryDivider = (key: string) => (key === REGISTRY_READINESS_START ? 'border-l border-border-soft' : undefined);
 
 const EMPTY_REGISTRY: PfmoFacilityRow[] = [];
 
@@ -114,6 +174,37 @@ export function FacilityDeepdivePage() {
     } as Record<string, Set<string>>;
   }, [facts]);
 
+  // Per-facility measurements for the indicator-backed matrix columns, pulled from
+  // the SAME shared engine the Indicator modal uses (memoised per facts load, so
+  // this just indexes into a pre-computed table). Keyed by `state|lga|facility`.
+  const indicatorCols = useMemo(() => FD_COLUMNS.filter((c) => c.indicator), []);
+  const measureMaps = useMemo(() => {
+    const maps: Record<string, Record<string, ScopedMeasure>> = {};
+    if (!facts) return maps;
+    for (const c of indicatorCols) maps[c.key] = facilityMeasures(c.indicator!);
+    return maps;
+  }, [facts, indicatorCols]);
+
+  // Toggle-pill columns, shaped into the compact "Columns" dropdown, grouped by theme.
+  const columnGroups: DropdownGroup[] = useMemo(
+    () =>
+      FD_COLUMN_GROUPS.map((group) => ({
+        label: group,
+        items: FD_COLUMNS.filter((c) => !c.always && c.group === group).map((c) => ({ key: c.key, label: c.label })),
+      })).filter((g) => g.items.length),
+    []
+  );
+
+  // Registry column picker, grouped the same way (service flows vs readiness).
+  const registryColumnGroups: DropdownGroup[] = useMemo(
+    () =>
+      REGISTRY_COLUMN_GROUPS.map((group) => ({
+        label: group,
+        items: REGISTRY_COLUMNS.filter((c) => c.group === group).map((c) => ({ key: c.key, label: c.label })),
+      })),
+    []
+  );
+
   const [mode, setMode] = useState<Mode>('assessed');
 
   // Local-only controls (independent of the global dashboard filters).
@@ -122,6 +213,9 @@ export function FacilityDeepdivePage() {
   const [localSearch, setLocalSearch] = useState('');
   const [groupByState, setGroupByState] = useState(true);
   const [activeCols, setActiveCols] = useState<Set<string>>(new Set(['tracer']));
+  // Registry columns default to ALL on (its metrics are few and all real); the picker
+  // lets users hide any they don't need.
+  const [registryCols, setRegistryCols] = useState<Set<string>>(new Set(REGISTRY_COLUMNS.map((c) => c.key)));
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'state', dir: 'asc' });
 
   // Switching universes resets scope + sort — the two modes have different states,
@@ -180,10 +274,14 @@ export function FacilityDeepdivePage() {
           r.state.toLowerCase().includes(q)
       );
     }
+    const sortCol = FD_COLUMNS.find((c) => c.key === sort.key);
     const cmp = (a: FacilityRow, b: FacilityRow) => {
       const get = (r: FacilityRow): string | number => {
         if (sort.key === 'state' || sort.key === 'lga' || sort.key === 'facility') return r[sort.key];
         if (sort.key === 'type' || sort.key === 'status') return (r as any)[sort.key];
+        // Indicator-backed columns rank by real magnitude; facilities with no
+        // measurement sink to the bottom (like a null value elsewhere).
+        if (sortCol?.indicator) return indicatorCell(measureMaps, sortCol, r)?.num ?? -1;
         return numericValue(r, sort.key) ?? -1;
       };
       const av = get(a);
@@ -193,7 +291,7 @@ export function FacilityDeepdivePage() {
       return c !== 0 ? c : tiebreak(a, b);
     };
     return [...out].sort(cmp);
-  }, [mode, FAC, globalFilter, effectiveState, localLga, effectiveSearch, sort, sourceFacilityKeys]);
+  }, [mode, FAC, globalFilter, effectiveState, localLga, effectiveSearch, sort, sourceFacilityKeys, measureMaps]);
 
   // ---- PFMO national registry ----------------------------------------------
   const registryRows = useMemo(() => {
@@ -262,23 +360,26 @@ export function FacilityDeepdivePage() {
   const pagedRows = useMemo(() => displayRows.slice(pageStart, pageStart + PAGE_SIZE), [displayRows, pageStart]);
 
   const cols = FD_COLUMNS.filter((c) => c.always || activeCols.has(c.key));
-  const registryColCount = 3 + REGISTRY_COLUMNS.length;
+  const regCols = REGISTRY_COLUMNS.filter((c) => registryCols.has(c.key));
+  const registryColCount = 3 + regCols.length;
   const assessedColCount = 3 + cols.length;
 
   const exportRows = useMemo(() => {
     if (isRegistry) {
-      return registryRows.map((r) => ({
-        State: r.state,
-        Zone: r.zone ?? ZONE_OF_STATE[r.state] ?? '',
-        LGA: r.lga,
-        Facility: r.facility,
-        Code: r.code,
-        'Penta 3 %': r.penta3Pct ?? 'No data',
-        'Live births': r.livebirths,
-        'Maternal deaths': r.maternalDeaths,
-        'Under-5 deaths': r.under5Deaths,
-        'Months reported': r.months,
-      }));
+      return registryRows.map((r) => {
+        const base: Record<string, unknown> = {
+          State: r.state,
+          Zone: r.zone ?? ZONE_OF_STATE[r.state] ?? '',
+          LGA: r.lga,
+          Facility: r.facility,
+          Code: r.code,
+        };
+        regCols.forEach((c) => {
+          const v = (r as any)[c.key];
+          base[c.label] = REGISTRY_PCT_KEYS.has(c.key) ? v ?? 'No data' : v;
+        });
+        return base;
+      });
     }
     return rows.map((r) => {
       const base: Record<string, unknown> = {
@@ -288,12 +389,19 @@ export function FacilityDeepdivePage() {
         Facility: r.facility,
       };
       cols.forEach((c) => {
-        base[c.label] =
-          c.key === 'type' || c.key === 'status' ? (r as any)[c.key] : numericValue(r, c.key) ?? 'No data';
+        if (c.key === 'type' || c.key === 'status') {
+          base[c.label] = (r as any)[c.key];
+        } else if (c.indicator) {
+          const cell = indicatorCell(measureMaps, c, r);
+          base[c.label] = cell ? cellText(c, cell) : 'No data';
+        } else {
+          base[c.label] = numericValue(r, c.key) ?? 'No data';
+        }
       });
       return base;
     });
-  }, [isRegistry, registryRows, rows, cols]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRegistry, registryRows, rows, cols, regCols, measureMaps]);
 
   const toggleCol = (key: string) =>
     setActiveCols((s) => {
@@ -302,14 +410,31 @@ export function FacilityDeepdivePage() {
       return n;
     });
 
+  const toggleRegCol = (key: string) =>
+    setRegistryCols((s) => {
+      const n = new Set(s);
+      n.has(key) ? n.delete(key) : n.add(key);
+      return n;
+    });
+
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
 
-  const SortHeader = ({ label, k, align = 'left' }: { label: string; k: SortKey; align?: 'left' | 'right' }) => (
+  const SortHeader = ({
+    label,
+    k,
+    align = 'left',
+    extraClass,
+  }: {
+    label: string;
+    k: SortKey;
+    align?: 'left' | 'right';
+    extraClass?: string;
+  }) => (
     <th
       scope="col"
       aria-sort={sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      className={cn('px-3 py-2.5 font-semibold', align === 'right' && 'text-right')}
+      className={cn('px-3 py-2.5 font-semibold', align === 'right' && 'text-right', extraClass)}
     >
       <button
         onClick={() => toggleSort(k)}
@@ -458,25 +583,16 @@ export function FacilityDeepdivePage() {
           </button>
         </div>
 
-        {/* Column pills — assessed mode only (registry columns are fixed). */}
-        {!isRegistry && (
-          <div className="mb-3 flex flex-wrap gap-2">
-            {FD_COLUMNS.filter((c) => !c.always).map((c) => (
-              <button
-                key={c.key}
-                onClick={() => toggleCol(c.key)}
-                aria-pressed={activeCols.has(c.key)}
-                aria-label={`${activeCols.has(c.key) ? 'Hide' : 'Show'} ${c.label} column`}
-                className={cn(
-                  'rounded-full border px-3 py-1 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-brand/60',
-                  activeCols.has(c.key) ? 'border-brand bg-brand/12 text-brand-bright' : 'border-border text-muted hover:text-text'
-                )}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Column picker — one compact dropdown per theme group, so every group is
+            visible and columns from different groups can be shown together. */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="mr-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-2">Columns</span>
+          {isRegistry ? (
+            <GroupedDropdownBar groups={registryColumnGroups} isChecked={(k) => registryCols.has(k)} onToggle={toggleRegCol} />
+          ) : (
+            <GroupedDropdownBar groups={columnGroups} isChecked={(k) => activeCols.has(k)} onToggle={toggleCol} />
+          )}
+        </div>
 
         {displayRows.length === 0 ? (
           <EmptyState
@@ -497,14 +613,11 @@ export function FacilityDeepdivePage() {
                   <SortHeader label="LGA" k="lga" />
                   <SortHeader label="Facility" k="facility" />
                   {isRegistry
-                    ? REGISTRY_COLUMNS.map((c) => <SortHeader key={c.key} label={c.label} k={c.key} align="right" />)
+                    ? regCols.map((c) => (
+                        <SortHeader key={c.key} label={c.label} k={c.key} align="right" extraClass={registryDivider(c.key)} />
+                      ))
                     : cols.map((c) => (
-                        <SortHeader
-                          key={c.key}
-                          label={c.label}
-                          k={c.key}
-                          align={c.key === 'type' || c.key === 'status' ? 'left' : 'right'}
-                        />
+                        <SortHeader key={c.key} label={c.label} k={c.key} align={leftAligned(c) ? 'left' : 'right'} />
                       ))}
                 </tr>
               </thead>
@@ -535,25 +648,16 @@ export function FacilityDeepdivePage() {
                           )}
                         </td>
                         {isRegistry
-                          ? REGISTRY_COLUMNS.map((c) => (
-                              <td key={c.key} className="px-3 py-2 text-right">
+                          ? regCols.map((c) => (
+                              <td key={c.key} className={cn('px-3 py-2 text-right', registryDivider(c.key))}>
                                 {registryCell(r as PfmoFacilityRow, c.key)}
                               </td>
                             ))
                           : cols.map((c) => {
                               const row = r as FacilityRow;
-                              const num = numericValue(row, c.key);
                               return (
-                                <td key={c.key} className={cn('px-3 py-2', c.key !== 'type' && c.key !== 'status' && 'text-right')}>
-                                  {c.key === 'type' ? (
-                                    <Badge tone={row.type === 'CEmONC' ? 'info' : 'neutral'}>{row.type}</Badge>
-                                  ) : c.key === 'status' ? (
-                                    <Badge tone={statusTone(row.status)}>{row.status}</Badge>
-                                  ) : num === null ? (
-                                    <span className="text-[11px] italic text-muted">No data</span>
-                                  ) : (
-                                    <span className="text-text-soft">{num.toLocaleString('en-US')}</span>
-                                  )}
+                                <td key={c.key} className={cn('px-3 py-2', !leftAligned(c) && 'text-right')}>
+                                  {renderAssessedCell(c, row, measureMaps)}
                                 </td>
                               );
                             })}
@@ -598,13 +702,46 @@ export function FacilityDeepdivePage() {
   );
 }
 
+/** Render an assessed-matrix cell: the two categorical badges, an indicator-backed
+ *  value (count / percent / ₦ / Yes-No), or a plain roster number — "No data" where
+ *  a facility's source doesn't measure the column. */
+function renderAssessedCell(
+  c: FacilityColumn,
+  row: FacilityRow,
+  maps: Record<string, Record<string, ScopedMeasure>>
+) {
+  if (c.key === 'type') return <Badge tone={row.type === 'CEmONC' ? 'info' : 'neutral'}>{row.type}</Badge>;
+  if (c.key === 'status') return <Badge tone={statusTone(row.status)}>{row.status}</Badge>;
+  const noData = <span className="text-[11px] italic text-muted">No data</span>;
+  if (c.indicator) {
+    const cell = indicatorCell(maps, c, row);
+    if (!cell) return noData;
+    if (c.fmt === 'bool') {
+      const yes = cell.pct >= 50;
+      return <Badge tone={yes ? 'good' : 'poor'}>{yes ? 'Yes' : 'No'}</Badge>;
+    }
+    // Percentages carry the shared good→bad heat colour; counts and ₦ stay neutral.
+    if (c.fmt === 'pct') {
+      return (
+        <span className="font-semibold tabular-nums" style={{ color: heatColor(cell.pct) }}>
+          {cell.display}
+        </span>
+      );
+    }
+    return <span className="text-text-soft tabular-nums">{cellText(c, cell)}</span>;
+  }
+  const num = numericValue(row, c.key);
+  return num === null ? noData : <span className="text-text-soft">{num.toLocaleString('en-US')}</span>;
+}
+
 /** Render a PFMO registry metric cell (Penta 3 % gaps to "No data" when no Penta1). */
 function registryCell(r: PfmoFacilityRow, key: string) {
-  if (key === 'penta3Pct') {
-    return r.penta3Pct == null ? (
+  if (REGISTRY_PCT_KEYS.has(key)) {
+    const v = (r as any)[key] as number | null;
+    return v == null ? (
       <span className="text-[11px] italic text-muted">No data</span>
     ) : (
-      <span className="text-text-soft">{r.penta3Pct}%</span>
+      <span className="text-text-soft">{v}%</span>
     );
   }
   const v = (r as any)[key] as number;

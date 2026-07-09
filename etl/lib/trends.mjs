@@ -69,12 +69,19 @@ export function buildTrends(srhAll, sfmAll, pfmoAll = []) {
   const fp = byMonth(srhAll, srhKeep, (rows) => ratioPct(sum(rows, (r) => r.fpModernUnits), sum(rows, (r) => r.fpTotal)));
   const pphAvail = byMonth(srhAll, srhKeep, (rows) => ratioPct(rows.filter((r) => r.pphBundleAvailable).length, rows.length));
   const deliveries = byMonth(sfmAll, sfmKeep, (rows) => sum(rows, (r) => r.deliveries));
+  // SBA-attended deliveries — the SAME math as indicator #97 (SFM only): attended
+  // deliveries ÷ facility deliveries, by complete month. Runs near-ceiling, so the
+  // line reads as a stability signal rather than a swing.
+  const sbaAttended = byMonth(sfmAll, sfmKeep, (rows) =>
+    ratioPct(sum(rows, (r) => r.sbaAttendedDeliveries), sum(rows, (r) => r.deliveries))
+  );
 
   return {
     'Facility deliveries (count)': alignToMonthFrame(deliveries),
     'ANC1 coverage (%)': alignToMonthFrame(anc1),
     'ANC4 coverage (%)': alignToMonthFrame(anc4),
     'Modern contraceptive use (%)': alignToMonthFrame(fp),
+    'SBA-attended deliveries (%)': alignToMonthFrame(sbaAttended),
     'PPH bundle availability (%)': alignToMonthFrame(pphAvail),
     ...buildPfmoTrends(pfmoAll),
   };

@@ -1,12 +1,14 @@
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Skeleton, Badge } from '@/components/ui';
 import { IndicatorViz, vizFor, vizEmbedsValue } from '@/components/dashboard/indicatorViz';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { useSnapshotStore } from '@/store/snapshotStore';
 import { scopedKpiValue, scopeLabel, statusFor, looksLikePercent, scopedSiblings, trendDelta, trendScopeActive } from '@/data/calculations';
 import { scopedTrends } from '@/data/scopedEngine';
+import { BLOCK_ROUTES, indicatorAnchorId } from '@/app/navigation';
 import { decodeHtml } from '@/lib/format';
-import type { KpiGroup, Indicator, Blocks, TrendSeries } from '@/data/types';
+import type { KpiGroup, Indicator, Blocks, BlockName, TrendSeries } from '@/data/types';
 
 export function KpiStrip({
   groups,
@@ -22,7 +24,18 @@ export function KpiStrip({
 }) {
   const filter = useFilterStore(pickFilter);
   const facts = useSnapshotStore((s) => s.facts);
+  const navigate = useNavigate();
   const scope = scopeLabel(filter);
+
+  // Which thematic (block) page each indicator lives on, so a KPI card can route to
+  // the indicator it's pulled from.
+  const blockOf: Record<string, BlockName> = {};
+  if (blocks) (Object.entries(blocks) as [BlockName, Indicator[]][]).forEach(([bn, list]) => list.forEach((i) => (blockOf[i.name] = bn)));
+  const goToIndicator = (name?: string) => {
+    const bn = name ? blockOf[name] : undefined;
+    if (!bn) return;
+    navigate(`${BLOCK_ROUTES[bn]}#${indicatorAnchorId(name!)}`);
+  };
   const scopeActive = !!(
     filter.state ||
     filter.zone ||
@@ -97,10 +110,35 @@ export function KpiStrip({
                 ind && scopeActive && showViz ? { ...ind, pct: scoped.pct, value: scoped.value } : ind;
               const vizSiblings = scopeActive ? scopedSiblings(byName, filter) : byName;
 
+              const canRoute = !!(card.indicator && blockOf[card.indicator]);
               return (
-                <Card key={card.label} className="flex h-full min-h-[336px] flex-col p-4" hover>
-                  <div className="min-h-[32px] text-xs font-medium leading-snug text-muted">
-                    {decodeHtml(card.label)}
+                <Card
+                  key={card.label}
+                  className={`group flex h-full min-h-[336px] flex-col p-4 ${canRoute ? 'cursor-pointer' : ''}`}
+                  hover
+                  role={canRoute ? 'button' : undefined}
+                  tabIndex={canRoute ? 0 : undefined}
+                  aria-label={canRoute ? `${decodeHtml(card.label)} — open on its thematic page` : undefined}
+                  onClick={canRoute ? () => goToIndicator(card.indicator) : undefined}
+                  onKeyDown={
+                    canRoute
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            goToIndicator(card.indicator);
+                          }
+                        }
+                      : undefined
+                  }
+                >
+                  <div className="flex min-h-[32px] items-start justify-between gap-2">
+                    <span className="text-xs font-medium leading-snug text-muted">{decodeHtml(card.label)}</span>
+                    {canRoute && (
+                      <ArrowUpRight
+                        size={15}
+                        className="flex-shrink-0 text-muted-2 transition-colors group-hover:text-brand-bright"
+                      />
+                    )}
                   </div>
 
                   {showValue && (

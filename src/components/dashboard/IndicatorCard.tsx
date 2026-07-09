@@ -57,6 +57,8 @@ export function IndicatorCard({
   siblings = {},
   trends = null,
   disableWide = false,
+  anchorId,
+  highlighted = false,
 }: {
   indicator: Indicator;
   onOpen: (i: Indicator) => void;
@@ -65,6 +67,10 @@ export function IndicatorCard({
   trends?: TrendSeries | null;
   /** Force single-column width even for wide charts (e.g. an even 2×2 section grid). */
   disableWide?: boolean;
+  /** DOM id so a deep-link (e.g. an Overview KPI) can scroll to this card. */
+  anchorId?: string;
+  /** Briefly ring-highlight the card when it's the deep-link target. */
+  highlighted?: boolean;
 }) {
   const filter = useFilterStore(pickFilter);
   const facts = useSnapshotStore((s) => s.facts);
@@ -130,15 +136,16 @@ export function IndicatorCard({
   // Info tooltip already carries the full text, so the card height stays uniform.
   const metaText = decodeHtml(ind.meta);
   const showMeta = metaText.length <= 70;
-  const valueSize = String(displayValue).length > 16 ? 'text-[17px]' : 'text-[26px]';
+  const valueSize = String(displayValue).length > 16 ? 'text-[19px]' : 'text-[30px]';
 
   return (
     <Card
+      id={anchorId}
       hover={clickable}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
       aria-label={clickable ? `${cleanName(ind.name)} — open deep dive` : undefined}
-      className={`group flex h-full flex-col p-4 ${clickable ? 'cursor-pointer' : ''} ${wide ? 'sm:col-span-2' : ''}`}
+      className={`group flex h-full scroll-mt-28 flex-col p-4 transition-shadow ${clickable ? 'cursor-pointer' : ''} ${wide ? 'sm:col-span-2' : ''} ${highlighted ? 'ring-2 ring-brand ring-offset-2 ring-offset-bg' : ''}`}
       onClick={() => clickable && onOpen(ind)}
       onKeyDown={
         clickable
@@ -174,20 +181,22 @@ export function IndicatorCard({
         </Badge>
       </div>
 
-      {showValue && (
-        <div className="mt-2.5 flex items-end gap-2">
-          <span className={`${valueSize} font-extrabold leading-none text-text`}>{displayValue}</span>
-          {isPercentValue && displayPct > 0 && (
-            <Badge tone={statusFor(displayPct, ind.inverse).level} className="mb-0.5">
-              {statusFor(displayPct, ind.inverse).label}
-            </Badge>
-          )}
-        </div>
-      )}
-
       {/* Body: the indicator's selected visualization (see INDICATOR_VIZ_REDESIGN.md).
-          flex-1 + justify-center makes the chart the centred hero of the card. */}
-      <div className="mt-3 flex min-h-[140px] flex-1 flex-col justify-center">
+          flex-1 + justify-center keeps the chart the centred hero of the card. When a
+          headline value is shown (bullet / funnel / count cards), it sits inside this
+          centred group directly above the chart, so the value reads with the chart
+          rather than stranded up in the top-left. */}
+      <div className="mt-3 flex min-h-[140px] flex-1 flex-col justify-center gap-2.5">
+        {showValue && (
+          <div className="flex items-end gap-2">
+            <span className={`${valueSize} font-extrabold leading-none text-text`}>{displayValue}</span>
+            {isPercentValue && displayPct > 0 && (
+              <Badge tone={statusFor(displayPct, ind.inverse).level} className="mb-0.5">
+                {statusFor(displayPct, ind.inverse).label}
+              </Badge>
+            )}
+          </div>
+        )}
         {ind.split4 ? (
           splitData && spec ? (
             <IndicatorViz indicator={ind} spec={spec} siblings={siblings} trends={trends} split={splitData} />

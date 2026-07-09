@@ -403,7 +403,8 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
         <div className="flex w-full flex-col items-center justify-center text-center">
           <div className="relative">
             <RingProgress pct={ind.inverse ? 100 - ind.pct : ind.pct} size={176} thickness={6} color={RADIAL_COLOR} />
-            <span className="absolute inset-0 flex items-center justify-center text-[34px] font-extrabold text-text">
+            {/* Match the donut charts' centre-text size (23px) so ring % reads consistently. */}
+            <span className="absolute inset-0 flex items-center justify-center text-[23px] font-extrabold text-text">
               {round1(ind.pct)}%
             </span>
           </div>

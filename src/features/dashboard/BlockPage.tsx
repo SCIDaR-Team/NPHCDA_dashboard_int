@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, ErrorState, Skeleton } from '@/components/ui';
 import { IndicatorCard } from '@/components/dashboard/IndicatorCard';
@@ -8,6 +9,7 @@ import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { BLOCK_DESCRIPTIONS } from '@/data/catalogue';
+import { indicatorAnchorId } from '@/app/navigation';
 import { effectiveIndicatorValue } from '@/data/calculations';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { BlockName, Indicator } from '@/data/types';
@@ -18,7 +20,21 @@ export function BlockPage({ block }: { block: BlockName }) {
   const { data: sections } = useAsync(() => ds.getBlockSections());
   const { data: trends } = useAsync(() => ds.getTrendSeries());
   const filter = useFilterStore(pickFilter);
+  const location = useLocation();
   const [modalInd, setModalInd] = useState<Indicator | null>(null);
+  // Deep-link target (e.g. from an Overview KPI): once cards are rendered, scroll to
+  // the matching indicator card and briefly ring-highlight it.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    const hash = location.hash.replace(/^#/, '');
+    if (!hash || loading || !blocks) return;
+    const el = document.getElementById(hash);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightId(hash);
+    const t = window.setTimeout(() => setHighlightId(null), 2200);
+    return () => window.clearTimeout(t);
+  }, [location.hash, loading, blocks]);
 
   const indicators = blocks?.[block] ?? [];
   const indByName = useMemo(() => {
@@ -78,16 +94,21 @@ export function BlockPage({ block }: { block: BlockName }) {
           return (
             <SectionBlock key={title} title={decodeHtml(title)} tone={isGap ? 'warning' : 'brand'}>
               <div className={gridClass}>
-                {cards.map((ind) => (
-                  <IndicatorCard
-                    key={ind.name}
-                    indicator={ind}
-                    onOpen={setModalInd}
-                    siblings={indByName}
-                    trends={trends}
-                    disableWide={twoUp}
-                  />
-                ))}
+                {cards.map((ind) => {
+                  const id = indicatorAnchorId(ind.name);
+                  return (
+                    <IndicatorCard
+                      key={ind.name}
+                      indicator={ind}
+                      onOpen={setModalInd}
+                      siblings={indByName}
+                      trends={trends}
+                      disableWide={twoUp}
+                      anchorId={id}
+                      highlighted={highlightId === id}
+                    />
+                  );
+                })}
               </div>
             </SectionBlock>
           );

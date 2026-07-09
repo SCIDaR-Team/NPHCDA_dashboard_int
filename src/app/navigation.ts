@@ -86,3 +86,9 @@ export const BLOCK_ROUTES: Record<BlockName, string> = {
   'Stock Status': '/app/stock',
   'Service Delivery': '/app/service',
 };
+
+/** Stable DOM anchor id for an indicator card, so a link (e.g. an Overview KPI)
+ *  can deep-link to the specific indicator on its thematic page. Derived from the
+ *  raw indicator name — both the linker and the target must pass the same name. */
+export const indicatorAnchorId = (name: string): string =>
+  'ind-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');

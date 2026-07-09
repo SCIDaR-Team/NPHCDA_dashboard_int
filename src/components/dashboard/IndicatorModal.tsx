@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import type { EChartsOption } from 'echarts';
 import { Modal } from '@/components/ui/Modal';
 import { StatusPill, Select } from '@/components/ui';
+import { cn } from '@/lib/cn';
 import { EChart } from '@/components/charts/EChart';
 import { useChartTheme } from '@/components/charts/chartTheme';
 import { horizontalBarOption, horizontalBarHeight, baseTooltip } from '@/components/charts/chartBase';
@@ -72,6 +74,63 @@ function compactAxis(v: number): string {
   return String(v);
 }
 
+/* ------------------------------------------------------------------ *
+ * Sortable-table primitives (mirror the main Facility Deepdive's arrow headers so
+ * the state / facility breakdowns here sort the same way).
+ * ------------------------------------------------------------------ */
+type SortDir = 'asc' | 'desc';
+interface SortState {
+  key: string;
+  dir: SortDir;
+}
+function sortRows<T>(rows: T[], sort: SortState, get: (r: T, key: string) => string | number): T[] {
+  const dir = sort.dir === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const av = get(a, sort.key);
+    const bv = get(b, sort.key);
+    const c = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv));
+    return c * dir;
+  });
+}
+const nextSort = (s: SortState, key: string): SortState =>
+  s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' };
+
+function SortTh({
+  label,
+  k,
+  sort,
+  onSort,
+  align = 'left',
+}: {
+  label: string;
+  k: string;
+  sort: SortState;
+  onSort: (k: string) => void;
+  align?: 'left' | 'right';
+}) {
+  const active = sort.key === k;
+  return (
+    <th
+      scope="col"
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={cn('px-3 py-2 font-semibold', align === 'right' && 'text-right')}
+    >
+      <button
+        onClick={() => onSort(k)}
+        aria-label={`Sort by ${label}`}
+        className={cn('inline-flex items-center gap-1 rounded hover:text-text', align === 'right' && 'flex-row-reverse')}
+      >
+        {label}
+        {active ? (
+          sort.dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+        ) : (
+          <ArrowUpDown size={12} className="opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+}
+
 /**
  * Indicator deep-dive: real per-state and per-facility breakdowns straight from
  * the ETL disaggregation (no synthetic figures). Scopes with no measurement are
@@ -82,6 +141,10 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   const [facilityState, setFacilityState] = useState('');
   const [recvFilter, setRecvFilter] = useState<RecvFilter>('all');
   const [page, setPage] = useState(1);
+  const [facSort, setFacSort] = useState<SortState>({ key: 'value', dir: 'desc' });
+  const onFacSort = (k: string) => setFacSort((s) => nextSort(s, k));
+  // How the By-state bar chart is ordered ('magnitude' = value, 'label' = state name).
+  const [stateSort, setStateSort] = useState<SortState>({ key: 'magnitude', dir: 'desc' });
   const theme = useChartTheme();
   const ds = getDataSource();
   const { data: facilities } = useAsync(() => ds.getFacilities());
@@ -95,26 +158,33 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   // counts, ₦ amounts, rates (neutral pct) or the categorical functional status.
   const showStatus = !!ind && !isFunctional && /^\s*[+-]?\d[\d.,]*%/.test(String(ind.value));
 
-  // Reset the view + facility filters whenever a new indicator opens.
+  // Reset the view + facility filters + sort whenever a new indicator opens. Default
+  // each table to the ranking the chart used to show (value/functional share desc; the
+  // SBA facility table by delivery volume).
   useMemo(() => {
     setView('state');
     setFacilityState('');
     setRecvFilter('all');
     setPage(1);
+    setFacSort({ key: isSbaAttended ? 'deliveries' : 'value', dir: 'desc' });
+    setStateSort({ key: 'magnitude', dir: 'desc' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ind?.name]);
 
   // Any change to what the facility table shows sends us back to the first page.
-  useMemo(() => setPage(1), [facilityState, recvFilter, view]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useMemo(() => setPage(1), [facilityState, recvFilter, view, facSort]);
 
   // Ranked descending by the real magnitude so every chart/table reads top-to-bottom
   // largest → smallest, even for count/rate indicators (colour still encodes
   // goodness via `value`/inverse, below).
   const stateRows = useMemo(() => {
     if (!ind) return [] as { label: string; value: number; magnitude: number; display: string; sub?: string; n?: number }[];
-    const hideZero = HIDE_ZERO_DISTRIBUTION_INDICATORS.has(ind.name);
     return Object.entries(stateMeasures(ind.name))
       .map(([label, m]) => ({ label, value: m.pct, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, sub: m.sub, n: m.n }))
-      .filter((r) => !hideZero || r.magnitude > 0) // MAMII activity indicators: list only states with real activity
+      // Only chart states that actually have a value — a measured 0 (or no activity)
+      // is dropped so the bar chart isn't padded with empty zero bars.
+      .filter((r) => r.magnitude > 0)
       .sort((a, b) => b.magnitude - a.magnitude);
   }, [ind?.name, facilities]);
 
@@ -146,12 +216,18 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
     if (isBhcpfFunds && recvFilter !== 'all') {
       rows = rows.filter((r) => (recvFilter === 'received' ? r.magnitude > 0 : r.magnitude <= 0));
     }
-    // SBA-attended is ~100% everywhere, so rank by delivery volume (the meaningful axis).
-    if (isSbaAttended) {
-      rows = [...rows].sort((a, b) => deliveriesCount(b.sub) - deliveriesCount(a.sub));
-    }
-    return rows;
-  }, [facilityRows, facilityState, isBhcpfFunds, recvFilter, isSbaAttended]);
+    return sortRows(rows, facSort, (r, key) => {
+      switch (key) {
+        case 'facility': return r.facility;
+        case 'lga': return r.lga;
+        case 'state': return r.state;
+        case 'deliveries': return deliveriesCount(r.sub); // SBA table's delivery-volume column
+        case 'attended': return r.value; // SBA attended %
+        case 'status': return r.value; // sort by the goodness pct behind the pill
+        default: return r.magnitude; // 'value'
+      }
+    });
+  }, [facilityRows, facilityState, isBhcpfFunds, recvFilter, facSort]);
 
   // Paginate the (possibly large) facility list so we never mount thousands of rows.
   const pageCount = Math.max(1, Math.ceil(visibleFacilityRows.length / FACILITY_PAGE_SIZE));
@@ -165,6 +241,13 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   const hasFacility = facilityRows.length > 0;
   const isGap = !ind || !(ind.pct > 0) || stateRows.length === 0;
   const note = ind ? coverageNote(ind) : '';
+
+  // The By-state bars, reordered by the user's chosen key/direction (value or state
+  // name). The y-axis is inverse, so array position 0 renders at the top.
+  const stateChartRows = useMemo(
+    () => sortRows(stateRows, stateSort, (r, key) => (key === 'label' ? r.label : r.magnitude)),
+    [stateRows, stateSort]
+  );
 
   const chart = useMemo<{ option: EChartsOption; height: number } | null>(() => {
     if (!ind || isGap) return null;
@@ -196,8 +279,8 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
       return { option, height: horizontalBarHeight(labels, { legend: true }) };
     }
 
-    const labels = stateRows.map((r) => r.label);
-    const magnitudes = stateRows.map((r) => r.magnitude);
+    const labels = stateChartRows.map((r) => r.label);
+    const magnitudes = stateChartRows.map((r) => r.magnitude);
     const max = niceMax(Math.max(0, ...magnitudes));
     // Percentage indicators keep the performance heat scale (good/bad semantic);
     // count / amount / rate indicators are a single category → one brand green.
@@ -214,7 +297,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
           data: magnitudes,
           colorFor: isPct
             ? (_v, i) => {
-                const r = stateRows[i];
+                const r = stateChartRows[i];
                 return ind.inverse ? heatColor(100 - r.value) : heatColor(r.value);
               }
             : () => CHART_GREEN,
@@ -226,12 +309,12 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
       formatter: (p: any) => {
-        const row = stateRows[p[0].dataIndex];
+        const row = stateChartRows[p[0].dataIndex];
         return `<b>${row.label}</b><br/>${row.display}${row.sub ? ` · ${row.sub}` : ''}${row.n != null ? `<br/>n = ${row.n}${row.n < SMALL_N ? ' (small sample)' : ''}` : ''}`;
       },
     };
     return { option, height: horizontalBarHeight(labels) };
-  }, [ind, isGap, isFunctional, stateRows, theme]);
+  }, [ind, isGap, isFunctional, stateChartRows, theme]);
 
   if (!ind) return null;
 
@@ -273,7 +356,41 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
             </div>
           )}
 
-          {view === 'state' && chart && <EChart option={chart.option} height={chart.height} />}
+          {view === 'state' && (
+            <div className="space-y-3">
+              {/* Bar ordering control — the functional-status chart is a fixed
+                  composition ranking, so it isn't offered there. */}
+              {!isFunctional && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-semibold text-muted">Sort states by</span>
+                  <div className="inline-flex rounded-lg border border-border bg-bg-elev-2 p-0.5">
+                    {([['magnitude', 'Value'], ['label', 'Name']] as const).map(([k, lbl]) => (
+                      <button
+                        key={k}
+                        onClick={() => setStateSort((s) => ({ ...s, key: k }))}
+                        aria-pressed={stateSort.key === k}
+                        className={cn(
+                          'rounded-md px-3 py-1 text-xs font-semibold transition-colors',
+                          stateSort.key === k ? 'bg-brand text-white' : 'text-muted hover:text-text'
+                        )}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setStateSort((s) => ({ ...s, dir: s.dir === 'asc' ? 'desc' : 'asc' }))}
+                    aria-label={stateSort.dir === 'asc' ? 'Ascending — click for descending' : 'Descending — click for ascending'}
+                    className="flex h-[30px] items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold text-muted transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-brand/60"
+                  >
+                    {stateSort.dir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
+                    {stateSort.dir === 'asc' ? 'Ascending' : 'Descending'}
+                  </button>
+                </div>
+              )}
+              {chart && <EChart option={chart.option} height={chart.height} />}
+            </div>
+          )}
 
           {view === 'facility' && (
             <>
@@ -309,21 +426,21 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                   <thead className="sticky top-0 bg-bg-elev-2 text-left text-xs text-muted">
                     <tr>
                       <th className="px-3 py-2 font-semibold">#</th>
-                      <th className="px-3 py-2 font-semibold">Facility</th>
-                      <th className="px-3 py-2 font-semibold">LGA</th>
-                      <th className="px-3 py-2 font-semibold">State</th>
+                      <SortTh label="Facility" k="facility" sort={facSort} onSort={onFacSort} />
+                      <SortTh label="LGA" k="lga" sort={facSort} onSort={onFacSort} />
+                      <SortTh label="State" k="state" sort={facSort} onSort={onFacSort} />
                       {isFunctional ? (
-                        <th className="px-3 py-2 font-semibold">Status</th>
+                        <SortTh label="Status" k="status" sort={facSort} onSort={onFacSort} />
                       ) : isSbaAttended ? (
                         <>
-                          <th className="px-3 py-2 text-right font-semibold">Deliveries</th>
-                          <th className="px-3 py-2 text-right font-semibold">Attended by SBA</th>
-                          {showStatus && <th className="px-3 py-2 font-semibold">Status</th>}
+                          <SortTh label="Deliveries" k="deliveries" sort={facSort} onSort={onFacSort} align="right" />
+                          <SortTh label="Attended by SBA" k="attended" sort={facSort} onSort={onFacSort} align="right" />
+                          {showStatus && <SortTh label="Status" k="status" sort={facSort} onSort={onFacSort} />}
                         </>
                       ) : (
                         <>
-                          <th className="px-3 py-2 text-right font-semibold">Value</th>
-                          {showStatus && <th className="px-3 py-2 font-semibold">Status</th>}
+                          <SortTh label="Value" k="value" sort={facSort} onSort={onFacSort} align="right" />
+                          {showStatus && <SortTh label="Status" k="status" sort={facSort} onSort={onFacSort} />}
                         </>
                       )}
                     </tr>

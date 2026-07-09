@@ -122,6 +122,17 @@ export interface FacilityColumn {
   key: string;
   label: string;
   always: boolean;
+  /**
+   * When set, the column's value is not a plain roster field but a per-facility
+   * measurement pulled at runtime from the shared engine (`facilityMeasures`),
+   * keyed by this indicator name. No new math — the same figure the Indicator
+   * modal's facility breakdown shows.
+   */
+  indicator?: string;
+  /** How an indicator-backed column renders/sorts. Roster fields omit this. */
+  fmt?: 'count' | 'pct' | 'naira' | 'bool';
+  /** Toggle-pill grouping label (organisational only; see FD_COLUMN_GROUPS). */
+  group?: string;
 }
 
 /** A breakdown row (state or facility level). */
