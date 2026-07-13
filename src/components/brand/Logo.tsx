@@ -30,7 +30,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <div className="leading-tight">
           <div className="text-[15px] font-extrabold tracking-tight text-text">NPHCDA Dashboard</div>
-          <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
             PHC Performance &amp; Decision Support
           </div>
         </div>

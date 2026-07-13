@@ -80,7 +80,7 @@ export function KpiStrip({
     <div className="grid gap-x-4 gap-y-5 lg:grid-cols-3">
       {groups.map((grp) => (
         <div key={grp.group}>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-2">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-2">
             {decodeHtml(grp.group)}
           </p>
           <div className="grid gap-4">
@@ -164,9 +164,9 @@ export function KpiStrip({
                       {eff.delta}
                     </div>
                   )}
-                  <div className="mt-0.5 text-[11px] text-muted">{decodeHtml(card.target)}</div>
+                  <div className="mt-0.5 text-[12px] text-muted">{decodeHtml(card.target)}</div>
                   {scoped.scoped && (
-                    <div className="mt-0.5 text-[11px] font-semibold text-brand-bright">
+                    <div className="mt-0.5 text-[12px] font-semibold text-brand-bright">
                       Scoped to: {scope}
                     </div>
                   )}
@@ -184,7 +184,7 @@ export function KpiStrip({
                         highlightState={filter.state || undefined}
                       />
                     ) : scopedNoData ? (
-                      <div className="rounded-lg border border-dashed border-border bg-bg-elev-2/40 px-3 py-4 text-center text-[10.5px] leading-snug text-muted">
+                      <div className="rounded-lg border border-dashed border-border bg-bg-elev-2/40 px-3 py-4 text-center text-[11px] leading-snug text-muted">
                         No data for <b className="text-text-soft">{scope}</b> on this indicator.
                       </div>
                     ) : null}

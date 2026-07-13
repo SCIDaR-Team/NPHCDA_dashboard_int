@@ -79,7 +79,7 @@ export function SourceDashboards() {
                   <d.icon size={20} />
                 </div>
                 {disabled ? (
-                  <span className="rounded-full bg-bg-elev-2 px-2 py-0.5 text-[10px] font-bold uppercase text-muted">
+                  <span className="rounded-full bg-bg-elev-2 px-2 py-0.5 text-[11px] font-bold uppercase text-muted">
                     Coming soon
                   </span>
                 ) : (

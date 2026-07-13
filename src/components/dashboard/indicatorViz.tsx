@@ -9,6 +9,7 @@ import {
   MiniKpiStat,
   MiniCompareBars,
   MiniCauseBars,
+  MiniRateBar,
   GhostViz,
   type CompositionSegment,
 } from '@/components/charts/mini/svgMinis';
@@ -52,6 +53,7 @@ export type VizKind =
   | 'donutBinary'
   | 'donutCause'
   | 'donutFp'
+  | 'barSplit' // 4-way functional-status composition as ranked bars (L2/L1/partial/non-func)
   | 'gauge'
   | 'pipeline'
   | 'kpiStat' // large headline count + period delta (unbounded volumes)
@@ -64,6 +66,9 @@ export interface VizSpec {
   kind: VizKind;
   /** donutBinary: [yes label, no label]. */
   donutLabels?: [string, string];
+  /** donutBinary: at a REAL reported 0 (not a data gap), show the zero-emphasis bar
+   *  instead of a meaningless solid "no" ring; a proper donut renders once non-zero. */
+  zeroEmphasis?: boolean;
   /** donutCause: this card's cause name. */
   cause?: string;
   /** trend: key into the snapshot trend series. */
@@ -91,9 +96,12 @@ const BAND_NOTE = 'This card measures the highlighted band of the vaccine stock 
 
 export const VIZ_MAP: Record<string, VizSpec> = {
   /* ---------------- Facility Readiness ---------------- */
-  'Facility functional status per state (L1 / L2 / partial / non-functional)': { kind: 'composition' },
+  'Facility functional status per state (L1 / L2 / partial / non-functional)': { kind: 'barSplit' },
   'Number of revitalized PHC facilities per state': { kind: 'stateBarsCount' },
-  'Proportion of visited PHCs offering the full essential service package*': { kind: 'bullet' },
+  'Proportion of visited PHCs offering the full essential service package*': {
+    kind: 'donutBinary',
+    donutLabels: ['Full package', 'Incomplete'],
+  },
   'Proportion of visited PHCs with functional maternal health equipment*': { kind: 'gauge' },
   'Number of SBAs recruited': { kind: 'stateBarsCount' },
   'Proportion of SBAs deployed per state': { kind: 'radial' },
@@ -104,7 +112,11 @@ export const VIZ_MAP: Record<string, VizSpec> = {
   },
   'Proportion of CBHWs recruited': { kind: 'stateBarsCount' },
   'Proportion of CBHWs deployed per state': { kind: 'gauge' },
-  '% of recruited CBHWs that have been absorbed': { kind: 'bullet' }, // renders zero-emphasis at a real 0
+  '% of recruited CBHWs that have been absorbed': {
+    kind: 'donutBinary',
+    donutLabels: ['Absorbed', 'Not absorbed'],
+    zeroEmphasis: true, // 0% absorbed today → zero-emphasis bar; donut once non-zero
+  },
   'Proportion of facilities with a minimum of 4 SBAs': {
     kind: 'donutBinary',
     donutLabels: ['≥ 4 SBAs', 'Below minimum'],
@@ -127,7 +139,10 @@ export const VIZ_MAP: Record<string, VizSpec> = {
   'Number of planned work plan activities completed': { kind: 'bullet' },
 
   /* ---------------- Stock Status ---------------- */
-  'Proportion of PHCs with all six tracer commodities available*': { kind: 'bullet' },
+  'Proportion of PHCs with all six tracer commodities available*': {
+    kind: 'donutBinary',
+    donutLabels: ['All six tracers', 'Missing ≥ 1'],
+  },
   'Proportion of facilities with the PPH bundle available*': { kind: 'gauge' },
   'Proportion of wards / main PHCs with functional cold-chain equipment (SDD/CCE)': {
     kind: 'donutBinary',
@@ -168,7 +183,10 @@ export const VIZ_MAP: Record<string, VizSpec> = {
   '% of women with a live birth who attended ANC 4': { kind: 'funnel' },
   '% of family planning clients using modern contraceptives': { kind: 'donutFp' },
   '% increase in utilization of FP services': { kind: 'delta' },
-  'Proportion of children &lt;1 year who received Penta 3': { kind: 'bullet' },
+  'Proportion of children &lt;1 year who received Penta 3': {
+    kind: 'donutBinary',
+    donutLabels: ['Received Penta 3', 'Not received'],
+  },
   'Proportion of children &lt;1 year who received Measles 1': { kind: 'bullet' },
   'Number of zero-dose children (burden)': { kind: 'stateBarsCount' },
   'Proportion of girls aged 9 who received the HPV vaccine dose': { kind: 'radial' },
@@ -183,7 +201,7 @@ export const VIZ_MAP: Record<string, VizSpec> = {
 };
 
 /** Kinds whose selected chart needs the wide (2-column) card layout. */
-const WIDE_KINDS = new Set<VizKind>(['composition', 'stateBarsCount', 'stateBarsNaira']);
+const WIDE_KINDS = new Set<VizKind>(['composition', 'barSplit', 'stateBarsCount', 'stateBarsNaira']);
 
 /** Kinds whose chart embeds the headline number, so the card need not repeat it. */
 const EMBEDS_VALUE = new Set<VizKind>([
@@ -365,6 +383,38 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
       return <MiniBullet pct={ind.pct} inverse={ind.inverse} />;
     }
 
+    case 'barSplit': {
+      // Functional status as ranked horizontal bars — one bar per class (L2/L1/
+      // partial/non-functional), each in its status colour on a fixed 0–100 axis so
+      // every bar's length reads as its true share. Each facility is exactly one
+      // class, so the shares sum to 100%. Reads individual classes better than a
+      // stacked bar or donut.
+      if (split) {
+        // Ranked highest → smallest share (each class keeps its status colour).
+        const segs = SPLIT4_SEGMENTS(split)
+          .slice()
+          .sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0));
+        return (
+          <div>
+            <MiniStateBars
+              rows={segs.map((s) => {
+                const pct = round1(s.pct ?? 0);
+                return { label: s.label, magnitude: pct, display: `${pct}%`, pct };
+              })}
+              paletteColors={segs.map((s) => s.color)}
+              domainMax={100}
+              formatter={(v) => `${v}%`}
+            />
+            <div className="mt-1 text-[11px] text-muted-2">
+              Each facility is exactly one class — shares sum to 100% of assessed facilities.
+            </div>
+          </div>
+        );
+      }
+      // No 4-way data yet → fall back to the single-% bullet.
+      return <MiniBullet pct={ind.pct} inverse={ind.inverse} />;
+    }
+
     case 'stateBarsCount':
     case 'stateBarsNaira': {
       const naira = spec.kind === 'stateBarsNaira';
@@ -381,7 +431,7 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
             highlight={highlightState}
             formatter={naira ? fmtNairaCompact : fmtCountCompact}
           />
-          <div className="mt-1 text-[10px] text-muted-2">
+          <div className="mt-1 text-[11px] text-muted-2">
             {scopeStates
               ? `${naira ? '₦ received' : 'Volume'} for the current scope.`
               : `Top states by ${naira ? '₦ received' : 'volume'} — open the deep dive for all.`}
@@ -414,6 +464,11 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
     case 'donutBinary': {
       const [yes, no] = spec.donutLabels ?? ['Yes', 'No'];
       const p = round1(ind.pct);
+      // A REAL reported zero (not a data gap) reads as a zero-emphasis bar — a donut
+      // at 0% would be a meaningless solid "no" ring. The donut returns once non-zero.
+      if (spec.zeroEmphasis && ind.pct <= 0.1 && numberIn(ind.value) === 0) {
+        return <MiniZeroBar annotation="a real reported zero, not a data gap — see the info note." />;
+      }
       // Two categories: primary (yes) = brand green, remainder = faint green.
       return (
         <MiniDonut
@@ -549,13 +604,16 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
           />
         );
       }
-      // No comparable benchmark (e.g. an institutional ratio) — a clear stat reads best.
+      // No comparable benchmark (e.g. an institutional ratio) — plot the rate on its
+      // contextual 0–max scale so the magnitude reads without a misleading target.
       const deaths = scoped ? null : deathsFromMeta(ind.meta);
       return (
-        <MiniKpiStat
-          value={String(v)}
+        <MiniRateBar
+          value={v}
           unit={cfg.unit}
-          sub={deaths ? `${cfg.note} · ${deaths} recorded deaths.` : cfg.note}
+          max={cfg.max}
+          color={cfg.color}
+          note={deaths ? `${cfg.note} · ${deaths} recorded deaths.` : cfg.note}
         />
       );
     }
@@ -586,6 +644,8 @@ function GhostIndicatorViz({ indicator: ind, spec }: { indicator: Indicator; spe
       case 'stateBarsCount':
       case 'stateBarsNaira':
         return <MiniStateBars ghost rows={[]} ghostLabels={['Ranked states', 'will appear', 'here', '…']} />;
+      case 'barSplit':
+        return <MiniStateBars ghost rows={[]} ghostLabels={['L2', 'L1', 'Partial', 'Non-functional']} />;
       case 'donutBinary':
       case 'donutCause':
       case 'donutFp':
@@ -597,7 +657,7 @@ function GhostIndicatorViz({ indicator: ind, spec }: { indicator: Indicator; spe
           <div className="flex w-full flex-col items-center justify-center gap-2 text-center">
             {/* Ghost ring stays fully muted (no brand colour) so it reads as pending. */}
             <RingProgress pct={0} size={140} thickness={5} color="rgb(128,138,150)" />
-            <span className="text-[11px] text-muted-2">Coverage % once connected</span>
+            <span className="text-[12px] text-muted-2">Coverage % once connected</span>
           </div>
         );
       case 'bullet':

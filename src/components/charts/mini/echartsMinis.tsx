@@ -98,7 +98,7 @@ export function MiniDonut({
         <EChart option={option} height={height} />
       </div>
       {legend.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-x-3.5 gap-y-1 text-[11px] leading-snug text-muted">
+        <div className="flex flex-wrap justify-center gap-x-3.5 gap-y-1 text-[12px] leading-snug text-muted">
           {legend.map((s) => (
             <span key={s.name} className={s.dim ? 'opacity-60' : ''}>
               <b style={{ color: s.color }}>■</b> {s.name}{' '}
@@ -173,9 +173,9 @@ export function MiniGauge({ pct, ghost, height = 172 }: { pct?: number; ghost?: 
     <div className="mx-auto w-full" style={{ maxWidth: 216 }}>
       <EChart option={option} height={height} />
       {!ghost && (
-        <div className="-mt-2 flex items-center justify-between px-2 text-[10px] font-semibold text-muted-2">
+        <div className="-mt-2 flex items-center justify-between px-2 text-[11px] font-semibold text-muted-2">
           <span>0%</span>
-          <span className="text-[9.5px] font-normal">low → high availability</span>
+          <span className="text-[11px] font-normal">low → high availability</span>
           <span>100%</span>
         </div>
       )}
@@ -203,6 +203,7 @@ export function MiniStateBars({
   reference,
   referenceLabel,
   paletteColors,
+  domainMax,
   ghost,
   ghostLabels,
 }: {
@@ -217,6 +218,9 @@ export function MiniStateBars({
   referenceLabel?: string;
   /** Give each bar a distinct categorical colour (cycled) instead of one colour. */
   paletteColors?: string[];
+  /** Fix the value axis to a known domain (e.g. 100 for a share-of-whole), so bar
+   *  length reads as the true share rather than relative to the largest bar. */
+  domainMax?: number;
   ghost?: boolean;
   ghostLabels?: string[];
 }) {
@@ -227,7 +231,7 @@ export function MiniStateBars({
 
   const option = useMemo<EChartsOption>(() => {
     const values = ghost ? (ghostLabels ?? ['—', '—', '—', '—']).map((_, i) => 80 - i * 18) : shown.map((r) => r.magnitude);
-    const max = Math.max(...values, reference ?? 0, 1);
+    const max = domainMax ?? Math.max(...values, reference ?? 0, 1) * 1.02;
     return {
       grid: { left: 2, right: 46, top: 6, bottom: 2, containLabel: true },
       tooltip: ghost
@@ -241,7 +245,7 @@ export function MiniStateBars({
               return `<b>${r.label}</b><br/>${r.display}`;
             },
           },
-      xAxis: { type: 'value', max: max * 1.02, show: false },
+      xAxis: { type: 'value', max, show: false },
       yAxis: {
         type: 'category',
         inverse: true,
@@ -303,7 +307,7 @@ export function MiniStateBars({
         },
       ],
     };
-  }, [shown, labels, inverse, neutralColor, highlight, formatter, reference, referenceLabel, paletteColors, ghost, ghostLabels, theme]);
+  }, [shown, labels, inverse, neutralColor, highlight, formatter, reference, referenceLabel, paletteColors, domainMax, ghost, ghostLabels, theme]);
 
   return <EChart option={option} height={height} />;
 }

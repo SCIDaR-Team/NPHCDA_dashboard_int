@@ -153,7 +153,7 @@ export function NigeriaMap({ values, selected, highlight, onStateClick, onClearS
             )}
             {STATE_DONORS[hover.state]?.length ? ` · ${STATE_DONORS[hover.state].join(', ')}` : ''}
           </div>
-          <div className="mt-0.5 text-[10px] text-muted-2">
+          <div className="mt-0.5 text-[11px] text-muted-2">
             {selected === hover.state ? 'Click to clear selection' : 'Click for full profile'}
           </div>
         </div>
@@ -165,7 +165,7 @@ export function NigeriaMap({ values, selected, highlight, onStateClick, onClearS
 /** Compact legend for the map (performance scale + donor markers). */
 export function MapLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-muted">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-muted">
       <span className="flex items-center gap-2">
         <span className="font-semibold text-text-soft">Performance</span>
         <span

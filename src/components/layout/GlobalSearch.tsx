@@ -131,7 +131,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                 placeholder="Search indicators, states, pages…"
                 className="h-14 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-muted"
               />
-              <kbd className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted">ESC</kbd>
+              <kbd className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted">ESC</kbd>
             </div>
             <div className="max-h-[52vh] overflow-y-auto p-2">
               {results.length === 0 ? (

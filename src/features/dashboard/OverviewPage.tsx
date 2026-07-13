@@ -127,7 +127,7 @@ export function OverviewPage() {
         <SectionBlock
           title="State map — donor footprint & programme performance"
           action={
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center gap-2 sm:w-auto">
               {blocks && (
                 <MapIndicatorPicker blocks={blocks} selection={selection} onChange={setSelection} />
               )}
@@ -229,14 +229,14 @@ function SnapshotCard({
         </div>
         <div>
           <div className="text-2xl font-extrabold leading-none text-text">{displayVal}</div>
-          <div className="mx-auto mt-1 max-w-[220px] text-[11px] leading-snug text-muted">
+          <div className="mx-auto mt-1 max-w-[220px] text-[12px] leading-snug text-muted">
             {cleanName(ind.name)}
           </div>
         </div>
       </div>
 
       <div className="mt-auto flex items-center justify-center border-t border-border-soft pt-3">
-        <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-brand-bright">
+        <span className="flex items-center gap-1 text-[12px] font-bold uppercase tracking-wide text-brand-bright">
           View details <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
         </span>
       </div>

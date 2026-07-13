@@ -94,7 +94,7 @@ export function MapIndicatorPicker({ blocks, selection, onChange }: Props) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Colour the map by — currently ${label}`}
-        className="flex h-9 w-64 items-center justify-between gap-2 rounded-lg border border-border bg-bg-elev-2 px-3 text-sm font-medium text-text transition-colors hover:bg-bg-elev-3 focus-visible:ring-2 focus-visible:ring-brand/60"
+        className="flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-border bg-bg-elev-2 px-3 text-sm font-medium text-text transition-colors hover:bg-bg-elev-3 focus-visible:ring-2 focus-visible:ring-brand/60 sm:w-64 sm:flex-none"
       >
         <span className="flex items-center gap-2 truncate">
           <Layers size={15} className="flex-shrink-0 text-brand-bright" />

@@ -167,7 +167,7 @@ export function LandingPage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
                   <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
                   <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
-                  <span className="ml-3 hidden text-[11px] font-medium text-muted sm:inline">
+                  <span className="ml-3 hidden text-[12px] font-medium text-muted sm:inline">
                     NPHCDA Dashboard — Overview
                   </span>
                 </div>

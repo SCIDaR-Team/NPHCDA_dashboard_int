@@ -35,7 +35,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        <p className="px-3 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-2">
+        <p className="px-3 pb-1.5 pt-1 text-[11px] font-bold uppercase tracking-wider text-muted-2">
           Dashboard
         </p>
         {NAV_ITEMS.map((item) => (
@@ -47,7 +47,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
         {views.length > 0 && (
           <div className="pt-4">
-            <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-2">
+            <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-2">
               Saved views
             </p>
             {views.map((v) => (
@@ -84,7 +84,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               ds.meta.mode === 'mock' ? 'bg-warning' : 'bg-brand-bright'
             )}
           />
-          <span className="text-[11px] font-medium text-muted">{ds.meta.label}</span>
+          <span className="text-[12px] font-medium text-muted">{ds.meta.label}</span>
         </div>
       </div>
     </div>

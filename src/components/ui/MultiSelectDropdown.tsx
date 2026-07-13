@@ -124,7 +124,7 @@ export function MultiSelectDropdown({
             {groups.map((g) => (
               <div key={g.label}>
                 {!hideGroupHeader && (
-                  <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-2">{g.label}</div>
+                  <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-2">{g.label}</div>
                 )}
                 <div className="space-y-1.5">
                   {g.items.map((it) => (

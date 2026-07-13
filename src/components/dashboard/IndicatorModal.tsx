@@ -362,7 +362,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                   composition ranking, so it isn't offered there. */}
               {!isFunctional && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-semibold text-muted">Sort states by</span>
+                  <span className="text-[12px] font-semibold text-muted">Sort states by</span>
                   <div className="inline-flex rounded-lg border border-border bg-bg-elev-2 p-0.5">
                     {([['magnitude', 'Value'], ['label', 'Name']] as const).map(([k, lbl]) => (
                       <button
@@ -455,7 +455,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                         {isFunctional ? (
                           <td className="px-3 py-2">
                             <span
-                              className="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                              className="inline-flex rounded-full px-2 py-0.5 text-[12px] font-semibold"
                               style={{
                                 background: `${STATUS_COLORS[d.display] ?? '#888'}22`,
                                 color: STATUS_COLORS[d.display] ?? theme.muted,
@@ -488,7 +488,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                               style={{ color: ind.inverse ? heatColor(100 - d.value) : heatColor(d.value) }}
                             >
                               {d.display}
-                              {d.sub && <span className="ml-1.5 text-[11px] font-normal text-muted">{d.sub}</span>}
+                              {d.sub && <span className="ml-1.5 text-[12px] font-normal text-muted">{d.sub}</span>}
                             </td>
                             {showStatus && (
                               <td className="px-3 py-2">

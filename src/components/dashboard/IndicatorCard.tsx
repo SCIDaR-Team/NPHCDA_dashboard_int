@@ -233,21 +233,21 @@ export function IndicatorCard({
         )}
       </div>
 
-      {showMeta && <p className="mt-2.5 text-[11px] leading-relaxed text-muted">{metaText}</p>}
+      {showMeta && <p className="mt-2.5 text-[12px] leading-relaxed text-muted">{metaText}</p>}
 
       <div className="flex items-center justify-between gap-2 pt-3">
         <div className="flex items-center gap-1.5">
           {ind.coverage && covLabel[ind.coverage] && (
-            <span className="rounded-full bg-bg-elev-2 px-2 py-0.5 text-[9.5px] font-bold uppercase text-muted">
+            <span className="rounded-full bg-bg-elev-2 px-2 py-0.5 text-[11px] font-bold uppercase text-muted">
               {covLabel[ind.coverage]}
             </span>
           )}
           {scopeActive && (eff || split) && !outOfScope && (
-            <span className="text-[10px] font-semibold text-brand-bright">Scoped</span>
+            <span className="text-[11px] font-semibold text-brand-bright">Scoped</span>
           )}
           {eff && !eff.outOfScope && eff.smallN && (
             <span
-              className="text-[10px] font-semibold text-warning"
+              className="text-[11px] font-semibold text-warning"
               title={`Small sample${eff.n != null ? ` (n = ${eff.n})` : ''} — interpret with caution`}
             >
               small n{eff.n != null ? ` = ${eff.n}` : ''}
@@ -255,7 +255,7 @@ export function IndicatorCard({
           )}
         </div>
         {clickable && (
-          <span className="flex items-center gap-0.5 text-[11px] font-semibold text-brand-bright opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="flex items-center gap-0.5 text-[12px] font-semibold text-brand-bright opacity-0 transition-opacity group-hover:opacity-100">
             Deep dive <ChevronRight size={13} />
           </span>
         )}
@@ -279,7 +279,7 @@ function EmptyMini({ kind }: { kind: 'gap' | 'scope' }) {
       </div>
       <div>
         <div className="text-xs font-bold text-text">{title}</div>
-        <div className="mt-0.5 text-[10.5px] leading-snug text-muted">{msg}</div>
+        <div className="mt-0.5 text-[11px] leading-snug text-muted">{msg}</div>
       </div>
     </div>
   );

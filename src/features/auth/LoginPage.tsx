@@ -96,7 +96,7 @@ export function LoginPage() {
           </motion.div>
 
           <div className="text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-brand-bright">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wide text-brand-bright">
               <ShieldCheck size={12} /> Secure sign-in
             </span>
             <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-text">Welcome back</h1>

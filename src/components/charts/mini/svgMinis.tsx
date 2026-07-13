@@ -48,7 +48,7 @@ export function MiniBullet({ pct, ghost }: { pct?: number; inverse?: boolean; gh
         {/* Target line at 100% */}
         <div className="absolute right-[1px] top-0 h-full w-[2px] rounded bg-text/50" />
       </div>
-      <div className="mt-1.5 flex justify-between text-[9.5px] font-semibold uppercase tracking-wide text-muted-2">
+      <div className="mt-1.5 flex justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-2">
         <span>Poor</span>
         <span>Fair</span>
         <span>Good</span>
@@ -76,7 +76,7 @@ export function MiniWaffle({ pct, inverse, ghost }: { pct?: number; inverse?: bo
         ))}
       </div>
       {!ghost && (
-        <div className="text-[11px] leading-snug text-muted">
+        <div className="text-[12px] leading-snug text-muted">
           <b className="text-text">{filled}</b> in every <b className="text-text">100</b> facilities
         </div>
       )}
@@ -126,7 +126,7 @@ export function MiniCompositionBar({
           );
         })}
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10.5px] text-muted">
+      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted">
         {segments.map((s) => {
           const emphasized = ghost && highlight === s.label;
           return (
@@ -137,7 +137,7 @@ export function MiniCompositionBar({
           );
         })}
       </div>
-      {note && <div className="mt-1.5 text-[10px] text-muted-2">{note}</div>}
+      {note && <div className="mt-1.5 text-[11px] text-muted-2">{note}</div>}
     </div>
   );
 }
@@ -165,7 +165,7 @@ export function MiniPipeline({
       <div className="relative h-6 w-full overflow-hidden rounded-md bg-bg-elev-3">
         <div className="absolute left-0 top-0 h-full rounded-r" style={{ width: `${Math.max(pct, 1.5)}%`, background: color }} />
       </div>
-      <div className="mt-1.5 flex items-center justify-between text-[10.5px] text-muted">
+      <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted">
         <span>
           <b style={{ color }}>■</b> {partLabel}: <b className="text-text">{part.toLocaleString('en-US')}</b>
         </span>
@@ -216,7 +216,7 @@ export function MiniRangeBar({
           />
         ))}
       </div>
-      <div className="flex justify-between text-[10.5px] leading-snug text-muted">
+      <div className="flex justify-between text-[11px] leading-snug text-muted">
         <span>
           <b className="text-text">{lo.toLocaleString('en-US')}</b> {loLabel}
         </span>
@@ -224,7 +224,7 @@ export function MiniRangeBar({
           <b className="text-text">{hi.toLocaleString('en-US')}</b> {hiLabel}
         </span>
       </div>
-      <div className="mt-0.5 text-center text-[10px] text-muted-2">{unit}</div>
+      <div className="mt-0.5 text-center text-[11px] text-muted-2">{unit}</div>
     </div>
   );
 }
@@ -251,18 +251,18 @@ export function MiniFunnel({
         const w = (s.pct / max) * 100;
         return (
           <div key={s.label} className="flex items-center gap-2">
-            <span className="w-12 flex-shrink-0 text-[10.5px] font-semibold text-muted">{s.label}</span>
+            <span className="w-12 flex-shrink-0 text-[11px] font-semibold text-muted">{s.label}</span>
             <div className="relative h-4 flex-1 overflow-hidden rounded bg-bg-elev-3/60">
               <div
                 className="h-full rounded-r"
                 style={{ width: `${Math.max(w, 2)}%`, background: color }}
               />
             </div>
-            <span className="w-11 flex-shrink-0 text-right text-[11px] font-bold text-text">{s.pct}%</span>
+            <span className="w-11 flex-shrink-0 text-right text-[12px] font-bold text-text">{s.pct}%</span>
           </div>
         );
       })}
-      <div className="text-[10px] text-muted-2">
+      <div className="text-[11px] text-muted-2">
         Retention {stages[0]?.label} → {stages[stages.length - 1]?.label}:{' '}
         <b className="text-muted">{retention}%</b> of entrants
       </div>
@@ -292,7 +292,7 @@ export function MiniDeltaBar({ delta }: { delta: number }) {
           }}
         />
       </div>
-      <div className="mt-1.5 flex justify-between text-[9.5px] font-semibold text-muted-2">
+      <div className="mt-1.5 flex justify-between text-[11px] font-semibold text-muted-2">
         <span>−100%</span>
         <span>0</span>
         <span>+100%</span>
@@ -310,7 +310,7 @@ export function MiniZeroBar({ annotation }: { annotation: string }) {
       <div className="relative h-4 w-full overflow-hidden rounded bg-bg-elev-3">
         <div className="absolute left-0 top-0 h-full w-[3px] rounded bg-danger" />
       </div>
-      <div className="mt-1.5 text-[10.5px] leading-snug text-muted">
+      <div className="mt-1.5 text-[11px] leading-snug text-muted">
         <b className="text-danger">0%</b> — {annotation}
       </div>
     </div>
@@ -348,7 +348,7 @@ export function MiniKpiStat({
     <>
       <div className="flex items-baseline justify-center gap-1.5">
         <div className="text-[46px] font-extrabold leading-none tracking-tight text-text">{value}</div>
-        {unit && <div className="max-w-[92px] text-left text-[11px] leading-snug text-muted">{unit}</div>}
+        {unit && <div className="max-w-[92px] text-left text-[12px] leading-snug text-muted">{unit}</div>}
       </div>
       {deltaText && (
         <div className={`mt-2.5 flex items-center justify-center gap-1 text-xs font-bold ${up ? 'text-brand-bright' : 'text-danger'}`}>
@@ -373,7 +373,7 @@ export function MiniKpiStat({
           <Sparkline data={spark} color={CHART_GREEN} height={40} />
         </div>
       )}
-      {sub && <div className="mx-auto mt-2 max-w-[250px] text-[11px] leading-snug text-muted">{sub}</div>}
+      {sub && <div className="mx-auto mt-2 max-w-[250px] text-[12px] leading-snug text-muted">{sub}</div>}
     </div>
   );
 }
@@ -398,7 +398,7 @@ export function MiniCompareBars({
     <div className="w-full space-y-2.5">
       {rows.map((r) => (
         <div key={r.label}>
-          <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px]">
+          <div className="mb-1 flex items-baseline justify-between gap-2 text-[12px]">
             <span className="font-semibold text-text-soft">{r.label}</span>
             <span className="font-extrabold text-text">{r.value.toLocaleString('en-US')}</span>
           </div>
@@ -407,9 +407,9 @@ export function MiniCompareBars({
           </div>
         </div>
       ))}
-      {unit && <div className="pt-0.5 text-[10px] text-muted-2">{unit}</div>}
+      {unit && <div className="pt-0.5 text-[11px] text-muted-2">{unit}</div>}
       {verdict && (
-        <div className={`text-[11px] font-bold ${verdictTone === 'good' ? 'text-brand-bright' : 'text-danger'}`}>
+        <div className={`text-[12px] font-bold ${verdictTone === 'good' ? 'text-brand-bright' : 'text-danger'}`}>
           {verdict}
         </div>
       )}
@@ -435,7 +435,7 @@ export function MiniCauseBars({
     <div className="w-full space-y-2.5">
       {rows.map((r) => (
         <div key={r.label}>
-          <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px]">
+          <div className="mb-1 flex items-baseline justify-between gap-2 text-[12px]">
             <span className={r.primary ? 'font-bold text-text' : 'font-medium text-muted'}>{r.label}</span>
             <span className={r.primary ? 'font-extrabold text-text' : 'font-semibold text-muted'}>{r.value}%</span>
           </div>
@@ -452,7 +452,7 @@ export function MiniCauseBars({
           </div>
         </div>
       ))}
-      {caption && <div className="pt-0.5 text-[10px] text-muted-2">{caption}</div>}
+      {caption && <div className="pt-0.5 text-[11px] text-muted-2">{caption}</div>}
     </div>
   );
 }
@@ -483,14 +483,14 @@ export function MiniRateBar({
     <div>
       <div className="flex items-end gap-2">
         <span className="text-[30px] font-extrabold leading-none text-text">{value.toLocaleString('en-US')}</span>
-        <span className="mb-0.5 text-[11px] leading-snug text-muted">{unit}</span>
+        <span className="mb-0.5 text-[12px] leading-snug text-muted">{unit}</span>
       </div>
       <div className="relative mt-5 h-3 w-full rounded-full bg-bg-elev-3">
         <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${x(value)}%`, background: color }} />
         {benchmark != null && (
           <>
             <div
-              className="absolute -top-4 -translate-x-1/2 whitespace-nowrap text-[9px] font-semibold text-muted"
+              className="absolute -top-4 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold text-muted"
               style={{ left: `${x(benchmark)}%` }}
             >
               {benchmarkLabel}
@@ -502,11 +502,11 @@ export function MiniRateBar({
           </>
         )}
       </div>
-      <div className="mt-1.5 flex justify-between text-[9.5px] text-muted-2">
+      <div className="mt-1.5 flex justify-between text-[11px] text-muted-2">
         <span>0</span>
         <span>{max.toLocaleString('en-US')}</span>
       </div>
-      {note && <div className="mt-1.5 text-[10px] leading-snug text-muted-2">{note}</div>}
+      {note && <div className="mt-1.5 text-[11px] leading-snug text-muted-2">{note}</div>}
     </div>
   );
 }
@@ -516,7 +516,7 @@ export function MiniRateBar({
  * ------------------------------------------------------------------ */
 export function MiniRateNote({ note }: { note: string }) {
   return (
-    <div className="rounded-lg border border-border-soft bg-bg-elev-2/50 px-3 py-2 text-[10.5px] leading-relaxed text-muted">
+    <div className="rounded-lg border border-border-soft bg-bg-elev-2/50 px-3 py-2 text-[11px] leading-relaxed text-muted">
       {note}
     </div>
   );
@@ -531,7 +531,7 @@ export function GhostViz({ children, message }: { children: React.ReactNode; mes
   return (
     <div>
       <div className="pointer-events-none select-none opacity-70">{children}</div>
-      <div className="mt-2 flex items-center gap-1.5 text-[10.5px] leading-snug">
+      <div className="mt-2 flex items-center gap-1.5 text-[11px] leading-snug">
         <span className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-warning" />
         <span>
           <b className="text-text-soft">Awaiting data.</b> <span className="text-muted">{message}</span>

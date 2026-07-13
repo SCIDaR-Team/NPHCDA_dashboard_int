@@ -111,12 +111,12 @@ export function StateProfileModal({ state, blocks, onClose, onScope }: Props) {
           <span className="text-muted">Donor / programme presence:</span>
           {donors.length ? (
             donors.map((d) => (
-              <span key={d} className="rounded-full bg-brand/12 px-2 py-0.5 text-[11px] font-semibold text-brand-bright">
+              <span key={d} className="rounded-full bg-brand/12 px-2 py-0.5 text-[12px] font-semibold text-brand-bright">
                 {d}
               </span>
             ))
           ) : (
-            <span className="rounded-full bg-bg-elev-3 px-2 py-0.5 text-[11px] font-semibold text-muted">
+            <span className="rounded-full bg-bg-elev-3 px-2 py-0.5 text-[12px] font-semibold text-muted">
               No mapped donor
             </span>
           )}

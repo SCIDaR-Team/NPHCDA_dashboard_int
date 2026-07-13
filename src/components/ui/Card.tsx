@@ -51,8 +51,8 @@ export function SectionBlock({
     tone === 'danger' ? 'bg-danger' : tone === 'warning' ? 'bg-warning' : 'bg-brand';
   return (
     <Card className={cn('mb-5 overflow-hidden', className)}>
-      <CardHeader className="justify-between">
-        <div className="flex items-center gap-2.5">
+      <CardHeader className="flex-wrap justify-between gap-y-3">
+        <div className="flex min-w-0 items-center gap-2.5">
           <span className={cn('h-[18px] w-1 flex-shrink-0 rounded-sm', barColor)} />
           <CardTitle>{title}</CardTitle>
         </div>

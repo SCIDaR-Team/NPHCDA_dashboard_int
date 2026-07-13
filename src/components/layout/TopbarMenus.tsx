@@ -57,7 +57,7 @@ export function NotificationsMenu() {
       >
         <Bell size={18} />
         {count > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
+          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold text-white">
             {count}
           </span>
         )}
@@ -93,7 +93,7 @@ export function NotificationsMenu() {
                       <span className={`truncate text-sm ${n.read ? 'font-medium text-text-soft' : 'font-bold text-text'}`}>
                         {n.title}
                       </span>
-                      <span className="flex-shrink-0 text-[10px] text-muted">{n.time}</span>
+                      <span className="flex-shrink-0 text-[11px] text-muted">{n.time}</span>
                     </div>
                     <p className="mt-0.5 text-xs leading-relaxed text-muted">{n.description}</p>
                   </div>
@@ -137,7 +137,7 @@ export function ProfileMenu() {
         </span>
         <span className="hidden text-left sm:block">
           <span className="block text-xs font-bold leading-tight text-text">{user.name}</span>
-          <span className="block text-[10px] leading-tight text-muted">{user.role}</span>
+          <span className="block text-[11px] leading-tight text-muted">{user.role}</span>
         </span>
       </button>
       <AnimatePresence>

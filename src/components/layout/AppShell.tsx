@@ -96,7 +96,7 @@ export function AppShell() {
             <SlidersHorizontal size={16} />
             <span className="hidden sm:inline">Filters</span>
             {activeCount > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[11px] font-bold text-white">
                 {activeCount}
               </span>
             )}
@@ -120,7 +120,7 @@ export function AppShell() {
             >
               <Search size={16} />
               <span className="hidden lg:inline">Search…</span>
-              <kbd className="hidden rounded border border-border px-1 text-[10px] lg:inline">⌘K</kbd>
+              <kbd className="hidden rounded border border-border px-1 text-[11px] lg:inline">⌘K</kbd>
             </button>
             <ThemeToggle />
           </div>

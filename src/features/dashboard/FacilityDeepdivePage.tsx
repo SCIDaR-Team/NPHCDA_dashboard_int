@@ -586,7 +586,7 @@ export function FacilityDeepdivePage() {
         {/* Column picker — one compact dropdown per theme group, so every group is
             visible and columns from different groups can be shown together. */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="mr-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-2">Columns</span>
+          <span className="mr-0.5 text-[11px] font-bold uppercase tracking-wider text-muted-2">Columns</span>
           {isRegistry ? (
             <GroupedDropdownBar groups={registryColumnGroups} isChecked={(k) => registryCols.has(k)} onToggle={toggleRegCol} />
           ) : (
@@ -644,7 +644,7 @@ export function FacilityDeepdivePage() {
                         <td className="px-3 py-2 font-medium text-text">
                           {r.facility}
                           {isRegistry && (r as PfmoFacilityRow).code && (
-                            <span className="ml-1.5 text-[11px] font-normal text-muted">{(r as PfmoFacilityRow).code}</span>
+                            <span className="ml-1.5 text-[12px] font-normal text-muted">{(r as PfmoFacilityRow).code}</span>
                           )}
                         </td>
                         {isRegistry
@@ -712,7 +712,7 @@ function renderAssessedCell(
 ) {
   if (c.key === 'type') return <Badge tone={row.type === 'CEmONC' ? 'info' : 'neutral'}>{row.type}</Badge>;
   if (c.key === 'status') return <Badge tone={statusTone(row.status)}>{row.status}</Badge>;
-  const noData = <span className="text-[11px] italic text-muted">No data</span>;
+  const noData = <span className="text-[12px] italic text-muted">No data</span>;
   if (c.indicator) {
     const cell = indicatorCell(maps, c, row);
     if (!cell) return noData;
@@ -739,7 +739,7 @@ function registryCell(r: PfmoFacilityRow, key: string) {
   if (REGISTRY_PCT_KEYS.has(key)) {
     const v = (r as any)[key] as number | null;
     return v == null ? (
-      <span className="text-[11px] italic text-muted">No data</span>
+      <span className="text-[12px] italic text-muted">No data</span>
     ) : (
       <span className="text-text-soft">{v}%</span>
     );
@@ -753,7 +753,7 @@ function KpiTile({ label, value, sub }: { label: string; value: string | number;
     <div className="rounded-card border border-border bg-bg-elev p-4 shadow-card">
       <div className="text-xs font-medium text-muted">{label}</div>
       <div className="mt-1 text-3xl font-extrabold text-text">{value}</div>
-      <div className="mt-1 text-[11px] text-muted">{sub}</div>
+      <div className="mt-1 text-[12px] text-muted">{sub}</div>
     </div>
   );
 }
