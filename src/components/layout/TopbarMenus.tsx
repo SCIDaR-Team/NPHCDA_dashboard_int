@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Sun, Moon, Settings, User as UserIcon, CheckCheck } from 'lucide-react';
+import { Bell, Sun, Moon, Settings, User as UserIcon, CheckCheck, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStore } from '@/store/themeStore';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -16,6 +16,25 @@ export function ThemeToggle() {
       className="flex h-9 w-9 items-center justify-center rounded-lg text-text-soft transition-colors hover:bg-bg-elev-2 hover:text-text"
     >
       {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+    </button>
+  );
+}
+
+/** Toggles the colour-blind-safe (viridis) performance heat scale app-wide. */
+export function ColorBlindToggle() {
+  const on = useThemeStore((s) => s.colorBlindSafe);
+  const toggle = useThemeStore((s) => s.toggleColorBlindSafe);
+  return (
+    <button
+      onClick={toggle}
+      title={on ? 'Colour-blind-safe scale: on' : 'Colour-blind-safe scale: off'}
+      aria-label={on ? 'Disable colour-blind-safe scale' : 'Enable colour-blind-safe scale'}
+      aria-pressed={on}
+      className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-bg-elev-2 ${
+        on ? 'text-brand-bright' : 'text-text-soft hover:text-text'
+      }`}
+    >
+      <Eye size={18} />
     </button>
   );
 }

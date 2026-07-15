@@ -236,7 +236,7 @@ export function TrendPage() {
               </label>
             </div>
 
-            <div ref={chartRef} className="min-h-0 flex-1">{option && <EChart option={option} height="100%" />}</div>
+            <div ref={chartRef} className="min-h-0 flex-1 rounded-lg bg-bg-elev p-3">{option && <EChart option={option} height="100%" />}</div>
           </div>
         )}
       </div>

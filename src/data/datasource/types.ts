@@ -4,6 +4,7 @@ import type {
   CompositeDefinition,
   FacilityRow,
   KpiGroup,
+  SnapshotMeta,
   TrendSeries,
 } from '../types';
 
@@ -29,4 +30,7 @@ export interface DataSource {
   getTrendSeries(): Promise<TrendSeries>;
   getFacilities(): Promise<FacilityRow[]>;
   getStateDonors(): Promise<Record<string, string[]>>;
+  /** Snapshot provenance/freshness (last refresh + per-source status). Null when
+   *  the backend/snapshot exposes no such header. */
+  getSnapshotMeta(): Promise<SnapshotMeta | null>;
 }

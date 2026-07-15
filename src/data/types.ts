@@ -97,6 +97,22 @@ export interface CompositeDefinition {
   text?: string;
 }
 
+/** Per-source fetch status the ETL records in the snapshot header. */
+export interface SourceStatus {
+  name: string;
+  ok: boolean;
+  error: string | null;
+  rowsFetched: number;
+  facilities: number;
+}
+
+/** Snapshot provenance/freshness metadata (data lineage + last refresh). */
+export interface SnapshotMeta {
+  generatedAt: string;
+  period: { from: string | null; to: string | null; quarters: string[] };
+  sources: SourceStatus[];
+}
+
 /** A facility row in the Facility Deepdive matrix. */
 export interface FacilityRow {
   state: string;

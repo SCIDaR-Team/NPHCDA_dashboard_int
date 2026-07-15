@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, BookOpen, ImageDown } from 'lucide-react';
 import type { EChartsOption } from 'echarts';
 import { Modal } from '@/components/ui/Modal';
-import { StatusPill, Select } from '@/components/ui';
+import { StatusPill, Select, CopyButton } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { formatDate } from '@/lib/freshness';
+import { exportElementToPNG } from '@/lib/export';
+import { useNotificationStore } from '@/store/notificationStore';
 import { EChart } from '@/components/charts/EChart';
 import { useChartTheme } from '@/components/charts/chartTheme';
 import { horizontalBarOption, horizontalBarHeight, baseTooltip } from '@/components/charts/chartBase';
@@ -145,9 +148,15 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   const onFacSort = (k: string) => setFacSort((s) => nextSort(s, k));
   // How the By-state bar chart is ordered ('magnitude' = value, 'label' = state name).
   const [stateSort, setStateSort] = useState<SortState>({ key: 'magnitude', dir: 'desc' });
+  const [defsOpen, setDefsOpen] = useState(false);
+  const [chartCapturing, setChartCapturing] = useState(false);
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+  const toast = useNotificationStore((s) => s.toast);
   const theme = useChartTheme();
   const ds = getDataSource();
   const { data: facilities } = useAsync(() => ds.getFacilities());
+  const { data: indicatorDefs } = useAsync(() => ds.getIndicatorDefs());
+  const { data: snapMeta } = useAsync(() => ds.getSnapshotMeta());
   const ind = indicator;
 
   const isFunctional = ind?.name === FUNCTIONAL_STATUS_INDICATOR;
@@ -318,12 +327,29 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
 
   if (!ind) return null;
 
+  // Download the chart as a PNG, with the indicator title baked into the image
+  // (revealed only for the capture, then hidden again).
+  const downloadChart = async () => {
+    if (!chartWrapRef.current) return;
+    const slug = cleanName(ind.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    setChartCapturing(true);
+    // Wait two frames so the title paints into the DOM before html2canvas reads it.
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
+    try {
+      await exportElementToPNG(chartWrapRef.current, `nphcda-${slug || 'indicator'}`);
+      toast({ tone: 'success', title: 'Chart downloaded', description: 'Saved as a PNG image.' });
+    } catch (e) {
+      toast({ tone: 'error', title: 'Download failed', description: (e as Error).message });
+    } finally {
+      setChartCapturing(false);
+    }
+  };
+
   return (
     <Modal
       open={!!ind}
       onClose={onClose}
       title={cleanName(ind.name)}
-      subtitle={`${decodeHtml(ind.meta)} · Source: ${decodeHtml(ind.src)}`}
       size="max-w-4xl"
     >
       {note && (
@@ -331,6 +357,53 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
           {note}
         </div>
       )}
+
+      {/* Indicator metadata panel — definition (numerator/denominator), source
+          lineage, disaggregation and last refresh, plus a one-click citation. */}
+      <div className="mb-4 rounded-lg border border-border bg-bg-elev-2/50">
+        <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted">
+            <span>
+              <span className="font-semibold text-text-soft">Source:</span> {decodeHtml(ind.src) || '—'}
+            </span>
+            {ind.disagg?.length > 0 && (
+              <span>
+                <span className="font-semibold text-text-soft">Disaggregation:</span> {ind.disagg.join(', ')}
+              </span>
+            )}
+            {snapMeta?.generatedAt && (
+              <span>
+                <span className="font-semibold text-text-soft">Data as of:</span> {formatDate(snapMeta.generatedAt)}
+              </span>
+            )}
+          </div>
+          <CopyButton
+            text={`${cleanName(ind.name)}: ${decodeHtml(ind.value)}${
+              ind.meta ? ` — ${decodeHtml(ind.meta)}` : ''
+            }. Source: ${decodeHtml(ind.src)}${
+              snapMeta?.generatedAt ? `. Data as of ${formatDate(snapMeta.generatedAt)}` : ''
+            }.`}
+          />
+        </div>
+        {indicatorDefs?.[ind.name] && (
+          <div className="border-t border-border-soft">
+            <button
+              onClick={() => setDefsOpen((o) => !o)}
+              aria-expanded={defsOpen}
+              className="flex w-full items-center gap-2 px-3.5 py-2 text-[12px] font-semibold text-brand-bright transition-colors hover:text-brand"
+            >
+              <BookOpen size={14} />
+              Definition &amp; calculation
+              <ChevronDown size={14} className={cn('ml-auto transition-transform', defsOpen && 'rotate-180')} />
+            </button>
+            {defsOpen && (
+              <p className="px-3.5 pb-3 text-[12.5px] leading-relaxed text-text-soft">
+                {decodeHtml(indicatorDefs[ind.name])}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {isGap ? (
         <div className="rounded-lg border border-border bg-bg-elev-2 px-4 py-5 text-sm text-text-soft">
@@ -358,37 +431,62 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
 
           {view === 'state' && (
             <div className="space-y-3">
-              {/* Bar ordering control — the functional-status chart is a fixed
-                  composition ranking, so it isn't offered there. */}
-              {!isFunctional && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[12px] font-semibold text-muted">Sort states by</span>
-                  <div className="inline-flex rounded-lg border border-border bg-bg-elev-2 p-0.5">
-                    {([['magnitude', 'Value'], ['label', 'Name']] as const).map(([k, lbl]) => (
-                      <button
-                        key={k}
-                        onClick={() => setStateSort((s) => ({ ...s, key: k }))}
-                        aria-pressed={stateSort.key === k}
-                        className={cn(
-                          'rounded-md px-3 py-1 text-xs font-semibold transition-colors',
-                          stateSort.key === k ? 'bg-brand text-white' : 'text-muted hover:text-text'
-                        )}
-                      >
-                        {lbl}
-                      </button>
-                    ))}
+              {/* Bar ordering control (left) + download-as-image (right). The
+                  functional-status chart is a fixed composition ranking, so its
+                  sort control isn't offered — but it's still downloadable. */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {!isFunctional ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[12px] font-semibold text-muted">Sort states by</span>
+                    <div className="inline-flex rounded-lg border border-border bg-bg-elev-2 p-0.5">
+                      {([['magnitude', 'Value'], ['label', 'Name']] as const).map(([k, lbl]) => (
+                        <button
+                          key={k}
+                          onClick={() => setStateSort((s) => ({ ...s, key: k }))}
+                          aria-pressed={stateSort.key === k}
+                          className={cn(
+                            'rounded-md px-3 py-1 text-xs font-semibold transition-colors',
+                            stateSort.key === k ? 'bg-brand text-white' : 'text-muted hover:text-text'
+                          )}
+                        >
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setStateSort((s) => ({ ...s, dir: s.dir === 'asc' ? 'desc' : 'asc' }))}
+                      aria-label={stateSort.dir === 'asc' ? 'Ascending — click for descending' : 'Descending — click for ascending'}
+                      className="flex h-[30px] items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold text-muted transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-brand/60"
+                    >
+                      {stateSort.dir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
+                      {stateSort.dir === 'asc' ? 'Ascending' : 'Descending'}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setStateSort((s) => ({ ...s, dir: s.dir === 'asc' ? 'desc' : 'asc' }))}
-                    aria-label={stateSort.dir === 'asc' ? 'Ascending — click for descending' : 'Descending — click for ascending'}
-                    className="flex h-[30px] items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold text-muted transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-brand/60"
-                  >
-                    {stateSort.dir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
-                    {stateSort.dir === 'asc' ? 'Ascending' : 'Descending'}
-                  </button>
-                </div>
-              )}
-              {chart && <EChart option={chart.option} height={chart.height} />}
+                ) : (
+                  <span />
+                )}
+                <button
+                  onClick={downloadChart}
+                  aria-label="Download chart as an image"
+                  className="flex h-[30px] items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold text-muted transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-brand/60"
+                >
+                  <ImageDown size={14} /> Download image
+                </button>
+              </div>
+              <div ref={chartWrapRef} className="rounded-lg bg-bg-elev p-3">
+                {/* Export-only title: shown only while the PNG is being captured, so
+                    the downloaded chart carries its indicator name + source. */}
+                {chartCapturing && (
+                  <div className="mb-3 border-b border-border-soft pb-3 text-center">
+                    <h3 className="text-sm font-extrabold tracking-tight text-text">{cleanName(ind.name)}</h3>
+                    <p className="mt-0.5 text-[11px] text-muted">
+                      {decodeHtml(ind.src)}
+                      {snapMeta?.generatedAt ? ` · Data as of ${formatDate(snapMeta.generatedAt)}` : ''}
+                    </p>
+                  </div>
+                )}
+                {chart && <EChart option={chart.option} height={chart.height} />}
+              </div>
             </div>
           )}
 

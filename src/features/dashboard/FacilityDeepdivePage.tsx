@@ -152,7 +152,14 @@ export function FacilityDeepdivePage() {
   const FAC = useMemo(() => facilities ?? [], [facilities]);
   // PFMO registry is derived from the snapshot facts (aggregated once, memoised).
   const facts = useSnapshotStore((s) => s.facts);
-  const pfmoBase = useMemo(() => (facts ? pfmoRegistry() : EMPTY_REGISTRY), [facts]);
+  // The registry is ~28k facilities — an expensive derivation. Defer building it
+  // until the user first opens the registry tab (then keep it, cached). Assessed
+  // mode never pays this cost.
+  const [registryRequested, setRegistryRequested] = useState(false);
+  const pfmoBase = useMemo(
+    () => (facts && registryRequested ? pfmoRegistry() : EMPTY_REGISTRY),
+    [facts, registryRequested]
+  );
 
   // Per-programme sets of facility keys (state|lga|facility) derived from the raw
   // source facts, so the Programme filter can scope the roster by which source a
@@ -206,6 +213,11 @@ export function FacilityDeepdivePage() {
   );
 
   const [mode, setMode] = useState<Mode>('assessed');
+
+  // First time the registry tab is opened, request its (deferred) build.
+  useEffect(() => {
+    if (mode === 'registry') setRegistryRequested(true);
+  }, [mode]);
 
   // Local-only controls (independent of the global dashboard filters).
   const [localState, setLocalState] = useState('');
@@ -454,7 +466,10 @@ export function FacilityDeepdivePage() {
     </th>
   );
 
-  const registryLoading = isRegistry && pfmoBase.length === 0;
+  // Explicit loading condition: the registry can't exist until the snapshot facts
+  // load and its (deferred) build has been requested. This never mistakes a
+  // genuinely empty filtered result for "still loading".
+  const registryLoading = isRegistry && (!facts || !registryRequested);
 
   return (
     <div>

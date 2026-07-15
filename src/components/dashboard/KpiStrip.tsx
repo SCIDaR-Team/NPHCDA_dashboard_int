@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Skeleton, Badge } from '@/components/ui';
+import { Card, Skeleton, Badge, CopyButton } from '@/components/ui';
 import { IndicatorViz, vizFor, vizEmbedsValue } from '@/components/dashboard/indicatorViz';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { useSnapshotStore } from '@/store/snapshotStore';
@@ -133,12 +133,24 @@ export function KpiStrip({
                 >
                   <div className="flex min-h-[32px] items-start justify-between gap-2">
                     <span className="text-xs font-medium leading-snug text-muted">{decodeHtml(card.label)}</span>
-                    {canRoute && (
-                      <ArrowUpRight
-                        size={15}
-                        className="flex-shrink-0 text-muted-2 transition-colors group-hover:text-brand-bright"
-                      />
-                    )}
+                    <span className="flex flex-shrink-0 items-center gap-0.5">
+                      <span className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                        <CopyButton
+                          compact
+                          stopPropagation
+                          label={`Copy ${decodeHtml(card.label)} figure`}
+                          text={`${decodeHtml(card.label)}: ${scoped.value}${
+                            scoped.scoped ? ` (${scope})` : ''
+                          }.${card.target ? ` ${decodeHtml(card.target)}.` : ''}`}
+                        />
+                      </span>
+                      {canRoute && (
+                        <ArrowUpRight
+                          size={15}
+                          className="text-muted-2 transition-colors group-hover:text-brand-bright"
+                        />
+                      )}
+                    </span>
                   </div>
 
                   {showValue && (

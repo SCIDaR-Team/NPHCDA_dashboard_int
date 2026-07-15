@@ -14,6 +14,7 @@ import { ALL_STATES } from './geo/states';
 import { LGAS_BY_STATE } from './geo/lgas';
 import { SRH_STATES, SFM_STATES, LCB_STATES } from './catalogue';
 import { scopedMeasurements, stateMeasures, facilityMeasures, functionalStatusScopedSplit, mamiiFacilityGeo } from './scopedEngine';
+import { getCvdSafe } from '@/lib/heatMode';
 
 // Re-export the single-dimension distributions (deep-dive chart / overview map),
 // which are derived from the same compound engine so they never diverge.
@@ -23,14 +24,26 @@ export { stateMeasures, facilityMeasures, mamiiFacilityGeo };
 export const SMALL_N = 30;
 
 /* ------------------------------------------------------------------ *
- * Colour scale: red → amber → green across a 0–100 "goodness" score.
+ * Colour scale: a 0–100 "goodness" score → colour.
+ *
+ * Default:   red → amber → green (good/bad semantic).
+ * CVD-safe:  viridis (deep purple → teal → yellow); high = yellow. Toggled via
+ *            the theme store (see src/lib/heatMode.ts) for red-green colour
+ *            vision deficiency.
  * ------------------------------------------------------------------ */
+const HEAT_STOPS_DEFAULT: [number, number[]][] = [
+  [0, [194, 86, 44]],
+  [50, [201, 162, 39]],
+  [100, [46, 139, 87]],
+];
+const HEAT_STOPS_CVD: [number, number[]][] = [
+  [0, [68, 1, 84]], // #440154 deep purple (poor)
+  [50, [33, 144, 140]], // #21918c teal (fair)
+  [100, [253, 231, 37]], // #fde725 yellow (good)
+];
+
 export function heatColor(score: number): string {
-  const stops: [number, number[]][] = [
-    [0, [194, 86, 44]],
-    [50, [201, 162, 39]],
-    [100, [46, 139, 87]],
-  ];
+  const stops = getCvdSafe() ? HEAT_STOPS_CVD : HEAT_STOPS_DEFAULT;
   let lo = stops[0];
   let hi = stops[stops.length - 1];
   for (let i = 0; i < stops.length - 1; i++) {
@@ -43,6 +56,14 @@ export function heatColor(score: number): string {
   const t = (score - lo[0]) / (hi[0] - lo[0] || 1);
   const c = lo[1].map((v, i) => Math.round(v + (hi[1][i] - v) * t));
   return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+/** CSS `linear-gradient` for the current heat scale (low → high) — drives the map
+ *  legend so it always matches whatever `heatColor` is currently producing. */
+export function heatGradientCss(): string {
+  const stops = getCvdSafe() ? HEAT_STOPS_CVD : HEAT_STOPS_DEFAULT;
+  const parts = stops.map(([pos, c]) => `rgb(${c[0]},${c[1]},${c[2]}) ${pos}%`);
+  return `linear-gradient(90deg, ${parts.join(', ')})`;
 }
 
 export function linregress(values: (number | null)[]): (number | null)[] {

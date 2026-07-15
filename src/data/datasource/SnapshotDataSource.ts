@@ -6,6 +6,7 @@ import type {
   FacilityRow,
   Indicator,
   KpiGroup,
+  SnapshotMeta,
   Split4,
   TrendSeries,
 } from '../types';
@@ -159,5 +160,11 @@ export class SnapshotDataSource implements DataSource {
   }
   getStateDonors(): Promise<Record<string, string[]>> {
     return Promise.resolve(STATE_DONORS);
+  }
+
+  async getSnapshotMeta(): Promise<SnapshotMeta | null> {
+    const snap = await this.load();
+    if (!snap) return null;
+    return { generatedAt: snap.generatedAt, period: snap.period, sources: snap.sources ?? [] };
   }
 }

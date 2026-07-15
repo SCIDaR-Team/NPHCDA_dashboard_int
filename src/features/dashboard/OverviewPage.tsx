@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Table2, Map as MapIcon, Info, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, ErrorState, Card, Skeleton } from '@/components/ui';
@@ -18,8 +18,9 @@ import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { ALL_STATES, STATE_DONORS, ZONE_OF_STATE } from '@/data/geo/states';
 import { BLOCK_ROUTES } from '@/app/navigation';
-import { effectiveIndicatorValue, goodnessFor, stateMeasures } from '@/data/calculations';
+import { effectiveIndicatorValue, goodnessFor, stateMeasures, heatColor } from '@/data/calculations';
 import { cleanName, decodeHtml } from '@/lib/format';
+import { cn } from '@/lib/cn';
 import type { Indicator, BlockName, Blocks } from '@/data/types';
 
 export function OverviewPage() {
@@ -36,6 +37,8 @@ export function OverviewPage() {
   const [selection, setSelection] = useState<MapColorSelection>({ name: null });
   const [modalInd, setModalInd] = useState<Indicator | null>(null);
   const [profileState, setProfileState] = useState<string | null>(null);
+  const [showTable, setShowTable] = useState(false);
+  const [capturing, setCapturing] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
 
   const allByName = useMemo(() => {
@@ -73,6 +76,12 @@ export function OverviewPage() {
     });
     return out;
   }, [activeInd, allByName]);
+
+  // Accessible table fallback for the SVG choropleth (WCAG) + a quick ranked read.
+  const mapRows = useMemo(() => Object.entries(mapValues).sort((a, b) => b[1] - a[1]), [mapValues]);
+  const mapCaption = activeInd
+    ? `${cleanName(activeInd.name)} — per-state performance (0–100). States shown in grey have no measurement for this indicator.`
+    : 'Composite PHC readiness score — each state is coloured by its average performance (0–100) across the curated tracer indicators it has real data for. States shown in grey have no data.';
 
   const highlight = useMemo<string[] | null>(() => {
     if (filter.state) return [filter.state];
@@ -123,7 +132,7 @@ export function OverviewPage() {
 
       <KpiStrip groups={kpiGroups} loading={kpiLoading} blocks={blocks} trends={trends} />
 
-      <div className="mt-6" ref={mapRef}>
+      <div className="mt-6">
         <SectionBlock
           title="State map — donor footprint & programme performance"
           action={
@@ -131,20 +140,65 @@ export function OverviewPage() {
               {blocks && (
                 <MapIndicatorPicker blocks={blocks} selection={selection} onChange={setSelection} />
               )}
-              <ExportMenu filename="nphcda-state-map" captureRef={mapRef} />
+              <button
+                onClick={() => setShowTable((t) => !t)}
+                aria-pressed={showTable}
+                className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-semibold text-muted transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-brand/60"
+              >
+                {showTable ? <MapIcon size={15} /> : <Table2 size={15} />}
+                {showTable ? 'View map' : 'View as table'}
+              </button>
+              <ExportMenu
+                filename="nphcda-state-map"
+                captureRef={mapRef}
+                onBeforeCapture={() => setCapturing(true)}
+                onAfterCapture={() => setCapturing(false)}
+              />
             </div>
           }
         >
           <div>
-            <NigeriaMap
-              values={mapValues}
-              selected={filter.state}
-              highlight={highlight}
-              onStateClick={setProfileState}
-              onClearSelection={clearMapSelection}
-            />
-            <div className="mt-3">
-              <MapLegend />
+            {/* What the colouring means — composite vs. the selected single indicator. */}
+            <p className="mb-3 flex items-start gap-1.5 text-[12.5px] leading-relaxed text-muted">
+              <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-2" />
+              <span>{mapCaption}</span>
+            </p>
+            {/* Only the map (or table) + legend is captured for the PNG/PDF export —
+                the title, controls and caption above are intentionally left out.
+                The padding gives the exported image clean margins so the map edges
+                and legend never sit flush against the border. */}
+            <div ref={mapRef} className="rounded-lg bg-bg-elev px-4 pb-5 pt-3">
+              {/* Export-only header: shown only while the image/PDF is being captured
+                  so the downloaded file carries a title, without duplicating the
+                  on-screen section header. */}
+              {capturing && (
+                <div className="mb-3 border-b border-border-soft pb-3 text-center">
+                  <h3 className="text-base font-extrabold tracking-tight text-text">
+                    Nigeria PHC — {activeInd ? cleanName(activeInd.name) : 'Composite performance score'}
+                  </h3>
+                  <p className="mt-0.5 text-[11px] text-muted">
+                    {activeInd ? 'Per-state performance (0–100)' : 'Composite state readiness (0–100)'} · NPHCDA
+                  </p>
+                </div>
+              )}
+              {showTable ? (
+                <MapDataTable
+                  rows={mapRows}
+                  label={activeInd ? cleanName(activeInd.name) : 'Composite score'}
+                  onSelect={setProfileState}
+                />
+              ) : (
+                <NigeriaMap
+                  values={mapValues}
+                  selected={filter.state}
+                  highlight={highlight}
+                  onStateClick={setProfileState}
+                  onClearSelection={clearMapSelection}
+                />
+              )}
+              <div className="pt-4">
+                <MapLegend />
+              </div>
             </div>
           </div>
         </SectionBlock>
@@ -174,6 +228,106 @@ export function OverviewPage() {
         onClose={() => setProfileState(null)}
         onScope={scopeToState}
       />
+    </div>
+  );
+}
+
+/** Accessible, sortable table equivalent of the choropleth — a WCAG-friendly
+ *  alternative to the SVG map, sortable by state name (alphabetical) or by value
+ *  (magnitude), each ascending or descending. */
+function MapDataTable({
+  rows,
+  label,
+  onSelect,
+}: {
+  rows: [string, number][];
+  label: string;
+  onSelect?: (state: string) => void;
+}) {
+  type SortKey = 'state' | 'value';
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'value', dir: 'desc' });
+
+  const sorted = useMemo(() => {
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const c =
+        sort.key === 'state' ? a[0].localeCompare(b[0]) : a[1] - b[1];
+      return c * dir || a[0].localeCompare(b[0]);
+    });
+  }, [rows, sort]);
+
+  const toggle = (key: SortKey) =>
+    // Sensible first-click direction per column: names A→Z, values high→low.
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'state' ? 'asc' : 'desc' }));
+
+  const SortTh = ({ label: lbl, k, align = 'left' }: { label: string; k: SortKey; align?: 'left' | 'right' }) => (
+    <th
+      scope="col"
+      aria-sort={sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={cn('px-3 py-2 font-semibold', align === 'right' && 'text-right')}
+    >
+      <button
+        onClick={() => toggle(k)}
+        aria-label={`Sort by ${lbl}`}
+        className={cn('inline-flex items-center gap-1 rounded hover:text-text focus-visible:ring-2 focus-visible:ring-brand/60', align === 'right' && 'flex-row-reverse')}
+      >
+        {lbl}
+        {sort.key === k ? (
+          sort.dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+        ) : (
+          <ArrowUpDown size={12} className="opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+
+  if (!rows.length) {
+    return (
+      <div className="rounded-lg border border-border bg-bg-elev-2 px-4 py-6 text-center text-sm text-muted">
+        No states have a measurement for this selection.
+      </div>
+    );
+  }
+  return (
+    <div className="max-h-[400px] overflow-auto rounded-lg border border-border">
+      <table className="w-full text-sm">
+        <caption className="sr-only">{label} by state — sortable by name or value</caption>
+        <thead className="sticky top-0 z-10 bg-bg-elev-2 text-left text-xs text-muted">
+          <tr>
+            <th scope="col" className="px-3 py-2 font-semibold">#</th>
+            <SortTh label="State" k="state" />
+            <th scope="col" className="px-3 py-2 font-semibold">Donors</th>
+            <SortTh label={label} k="value" align="right" />
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map(([state, value], i) => (
+            <tr
+              key={state}
+              className="border-t border-border-soft hover:bg-bg-elev-2/50"
+            >
+              <td className="px-3 py-2 text-muted tabular-nums">{i + 1}</td>
+              <td className="px-3 py-2">
+                <button
+                  onClick={() => onSelect?.(state)}
+                  className="font-medium text-text hover:text-brand-bright focus-visible:ring-2 focus-visible:ring-brand/60"
+                >
+                  {state}
+                </button>
+              </td>
+              <td className="px-3 py-2 text-muted">
+                {STATE_DONORS[state]?.length ? STATE_DONORS[state].join(', ') : '—'}
+              </td>
+              <td className="px-3 py-2 text-right">
+                <span className="inline-flex items-center gap-2 tabular-nums font-semibold text-text-soft">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: heatColor(value) }} aria-hidden />
+                  {Math.round(value)}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

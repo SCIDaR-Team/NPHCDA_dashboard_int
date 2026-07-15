@@ -5,6 +5,7 @@ import type {
   CompositeDefinition,
   FacilityRow,
   KpiGroup,
+  SnapshotMeta,
   TrendSeries,
 } from '../types';
 
@@ -71,5 +72,13 @@ export class ApiDataSource implements DataSource {
   }
   getStateDonors() {
     return this.get<Record<string, string[]>>('/state-donors');
+  }
+  async getSnapshotMeta(): Promise<SnapshotMeta | null> {
+    // Optional endpoint — degrade gracefully if the backend doesn't expose it.
+    try {
+      return await this.get<SnapshotMeta>('/snapshot-meta');
+    } catch {
+      return null;
+    }
   }
 }

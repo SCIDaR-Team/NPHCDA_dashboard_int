@@ -10,7 +10,7 @@ import { getDataSource } from '@/data/datasource';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { BLOCK_DESCRIPTIONS } from '@/data/catalogue';
 import { indicatorAnchorId } from '@/app/navigation';
-import { effectiveIndicatorValue } from '@/data/calculations';
+import { effectiveIndicatorValue, goodnessFor, heatColor } from '@/data/calculations';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { BlockName, Indicator } from '@/data/types';
 
@@ -45,6 +45,19 @@ export function BlockPage({ block }: { block: BlockName }) {
 
   const sectionList = sections?.[block] ?? [['Indicators', indicators.map((i) => i.name)]];
 
+  // Strongest / weakest indicator in the block by goodness (inverse-aware), across
+  // the indicators that carry a real measurement. A quick scan of what's working
+  // and what needs attention, straight in the header.
+  const extremes = useMemo(() => {
+    const list = blocks?.[block] ?? [];
+    const graded = list
+      .filter((i) => i.pct > 0 && !i.split4)
+      .map((i) => ({ ind: i, goodness: goodnessFor({ inverse: i.inverse, pct: i.pct }) }));
+    if (graded.length < 2) return null;
+    const sorted = [...graded].sort((a, b) => b.goodness - a.goodness);
+    return { best: sorted[0], worst: sorted[sorted.length - 1] };
+  }, [blocks, block]);
+
   // Flat export rows (filter-aware values).
   const exportRows = useMemo(
     () =>
@@ -70,6 +83,13 @@ export function BlockPage({ block }: { block: BlockName }) {
         subtitle={`${BLOCK_DESCRIPTIONS[block]} · Tier 1 = all states · Tier 2 = select locations · Tier 3 = not available yet`}
         actions={<ExportMenu filename={`nphcda-${block.toLowerCase().replace(/\s+/g, '-')}`} rows={exportRows} />}
       />
+
+      {extremes && (
+        <div className="mb-5 flex flex-wrap gap-2.5">
+          <ExtremeChip label="Strongest" entry={extremes.best} />
+          <ExtremeChip label="Needs attention" entry={extremes.worst} />
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-5">
@@ -117,5 +137,27 @@ export function BlockPage({ block }: { block: BlockName }) {
 
       <IndicatorModal indicator={modalInd} onClose={() => setModalInd(null)} />
     </div>
+  );
+}
+
+/** Compact header chip naming the strongest / weakest indicator in the block. */
+function ExtremeChip({
+  label,
+  entry,
+}: {
+  label: string;
+  entry: { ind: Indicator; goodness: number };
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-border bg-bg-elev px-3 py-1.5 text-[12px] shadow-card">
+      <span
+        className="h-2 w-2 flex-shrink-0 rounded-full"
+        style={{ background: heatColor(entry.goodness) }}
+        aria-hidden
+      />
+      <span className="font-bold uppercase tracking-wide text-muted-2">{label}</span>
+      <span className="max-w-[240px] truncate font-semibold text-text">{cleanName(entry.ind.name)}</span>
+      <span className="font-bold tabular-nums text-text-soft">{decodeHtml(entry.ind.value)}</span>
+    </span>
   );
 }

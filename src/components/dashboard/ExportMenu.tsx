@@ -10,9 +10,21 @@ interface ExportMenuProps {
   rows?: Record<string, unknown>[];
   /** Element to rasterise for PNG/PDF. */
   captureRef?: RefObject<HTMLElement>;
+  /** Called just before the PNG/PDF is rasterised, then just after — lets a caller
+   *  reveal export-only chrome (e.g. a title) inside the captured element. */
+  onBeforeCapture?: () => void;
+  onAfterCapture?: () => void;
 }
 
-export function ExportMenu({ filename, rows, captureRef }: ExportMenuProps) {
+/** Wait two animation frames so a state change made in onBeforeCapture is painted
+ *  into the DOM before html2canvas reads it. */
+function nextPaint(): Promise<void> {
+  return new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  );
+}
+
+export function ExportMenu({ filename, rows, captureRef, onBeforeCapture, onAfterCapture }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const toast = useNotificationStore((s) => s.toast);
@@ -35,6 +47,18 @@ export function ExportMenu({ filename, rows, captureRef }: ExportMenuProps) {
     }
   };
 
+  /** Rasterise the captured element, revealing export-only chrome around the capture. */
+  const capture = async (fn: (el: HTMLElement) => Promise<void>) => {
+    if (!captureRef?.current) return;
+    onBeforeCapture?.();
+    if (onBeforeCapture) await nextPaint();
+    try {
+      await fn(captureRef.current);
+    } finally {
+      onAfterCapture?.();
+    }
+  };
+
   const items = [
     rows && {
       icon: FileText,
@@ -49,18 +73,12 @@ export function ExportMenu({ filename, rows, captureRef }: ExportMenuProps) {
     captureRef && {
       icon: Image,
       label: 'Image (PNG)',
-      action: () =>
-        run(async () => {
-          if (captureRef.current) await exportElementToPNG(captureRef.current, filename);
-        }, 'image'),
+      action: () => run(() => capture((el) => exportElementToPNG(el, filename)), 'image'),
     },
     captureRef && {
       icon: FileType,
       label: 'PDF',
-      action: () =>
-        run(async () => {
-          if (captureRef.current) await exportElementToPDF(captureRef.current, filename);
-        }, 'PDF'),
+      action: () => run(() => capture((el) => exportElementToPDF(el, filename)), 'PDF'),
     },
   ].filter(Boolean) as { icon: typeof FileText; label: string; action: () => void }[];
 

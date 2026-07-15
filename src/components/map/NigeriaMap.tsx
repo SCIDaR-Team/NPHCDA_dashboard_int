@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { STATE_PATHS, STATE_CENTROIDS, STATE_DONORS, MAP_VBW, MAP_VBH } from '@/data/geo/states';
-import { heatColor } from '@/data/calculations';
+import { heatColor, heatGradientCss } from '@/data/calculations';
 import { cssVar } from '@/components/charts/chartTheme';
 import { useThemeStore } from '@/store/themeStore';
 
@@ -48,6 +48,7 @@ function DonorMarker({ cx, cy, donor }: DonorMarkerProps) {
 
 export function NigeriaMap({ values, selected, highlight, onStateClick, onClearSelection }: NigeriaMapProps) {
   const [hover, setHover] = useState<{ state: string; x: number; y: number } | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
   // Subscribe to the theme so the map recolours on dark/light toggle; the neutral
   // surfaces (no-data fill, inter-state stroke, label halo) come from theme tokens.
   const theme = useThemeStore((s) => s.theme);
@@ -76,15 +77,31 @@ export function NigeriaMap({ values, selected, highlight, onStateClick, onClearS
           const hasData = v !== undefined;
           const dim = highlight && !highlight.includes(state);
           const isSel = selected === state;
+          const isFocused = focused === state;
+          const outlined = isSel || isFocused;
           return (
             <path
               key={state}
               d={d}
               fill={hasData ? heatColor(v) : noDataFill}
-              stroke={isSel ? '#fff' : stateStroke}
-              strokeWidth={isSel ? 1.8 : 0.6}
+              stroke={outlined ? '#fff' : stateStroke}
+              strokeWidth={outlined ? 1.8 : 0.6}
               opacity={dim ? 0.25 : 1}
-              className="cursor-pointer transition-[opacity,stroke-width] duration-150 hover:opacity-90"
+              tabIndex={0}
+              role="button"
+              aria-label={`${state}${
+                hasData ? `, performance ${Math.round(v)} of 100` : ', no data for this selection'
+              }${selected === state ? ', selected' : ''}. Activate for full profile.`}
+              className="cursor-pointer outline-none transition-[opacity,stroke-width] duration-150 hover:opacity-90"
+              onFocus={() => setFocused(state)}
+              onBlur={() => setFocused(null)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (isSel) onClearSelection?.();
+                  else onStateClick?.(state);
+                }
+              }}
               onMouseEnter={(e) => {
                 const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
                 setHover({ state, x: e.clientX - rect.left, y: e.clientY - rect.top });
@@ -168,10 +185,7 @@ export function MapLegend() {
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-muted">
       <span className="flex items-center gap-2">
         <span className="font-semibold text-text-soft">Performance</span>
-        <span
-          className="h-2.5 w-24 rounded-full"
-          style={{ background: 'linear-gradient(90deg, #C2562C, #C9A227, #2E8B57)' }}
-        />
+        <span className="h-2.5 w-24 rounded-full" style={{ background: heatGradientCss() }} />
         <span>Low → High</span>
       </span>
       <span className="flex items-center gap-3">

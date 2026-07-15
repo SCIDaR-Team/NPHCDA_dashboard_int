@@ -1,21 +1,38 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from '@/features/auth/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { Toaster } from '@/components/ui/Toaster';
+import { Spinner } from '@/components/ui';
 // NOTE: LandingPage and LoginPage (and the ProtectedRoute auth gate) are
 // intentionally retained in the codebase but removed from the active routing.
 // The Home page is now the application's single entry point. Re-import and
 // re-add the routes below to restore the landing / authentication flow.
 import { AppShell } from '@/components/layout/AppShell';
-import { HomePage } from '@/features/dashboard/HomePage';
-import { OverviewPage } from '@/features/dashboard/OverviewPage';
-import { BlockPage } from '@/features/dashboard/BlockPage';
-import { TrendPage } from '@/features/dashboard/TrendPage';
-import { FacilityDeepdivePage } from '@/features/dashboard/FacilityDeepdivePage';
-import { SourceDashboardsPage } from '@/features/dashboard/SourceDashboardsPage';
+// Route-level code-splitting: each page (and its heavy chart / export deps) is
+// fetched on demand, so the initial bundle stays small. Named exports are mapped
+// to the default that React.lazy expects.
+const HomePage = lazy(() => import('@/features/dashboard/HomePage').then((m) => ({ default: m.HomePage })));
+const OverviewPage = lazy(() => import('@/features/dashboard/OverviewPage').then((m) => ({ default: m.OverviewPage })));
+const BlockPage = lazy(() => import('@/features/dashboard/BlockPage').then((m) => ({ default: m.BlockPage })));
+const TrendPage = lazy(() => import('@/features/dashboard/TrendPage').then((m) => ({ default: m.TrendPage })));
+const FacilityDeepdivePage = lazy(() =>
+  import('@/features/dashboard/FacilityDeepdivePage').then((m) => ({ default: m.FacilityDeepdivePage }))
+);
+const SourceDashboardsPage = lazy(() =>
+  import('@/features/dashboard/SourceDashboardsPage').then((m) => ({ default: m.SourceDashboardsPage }))
+);
 // NOTE: SettingsPage is retained in the codebase but removed from the active
 // routing/navigation. Re-add the route below to restore it.
+
+/** Full-viewport fallback while a lazily-loaded route chunk is fetched. */
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <Spinner />
+    </div>
+  );
+}
 
 export default function App() {
   const bootstrap = useAuthStore((s) => s.bootstrap);
@@ -30,24 +47,26 @@ export default function App() {
 
   return (
     <>
-      <Routes>
-        {/* Home is a standalone entry page (its own chrome, no dashboard shell). */}
-        <Route path="/" element={<HomePage />} />
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          {/* Home is a standalone entry page (its own chrome, no dashboard shell). */}
+          <Route path="/" element={<HomePage />} />
 
-        {/* The dashboard shell — Home lives outside it and links in here. */}
-        <Route path="/app" element={<AppShell />}>
-          <Route index element={<Navigate to="/app/overview" replace />} />
-          <Route path="overview" element={<OverviewPage />} />
-          <Route path="readiness" element={<BlockPage block="Facility Readiness" />} />
-          <Route path="stock" element={<BlockPage block="Stock Status" />} />
-          <Route path="service" element={<BlockPage block="Service Delivery" />} />
-          <Route path="trends" element={<TrendPage />} />
-          <Route path="facilities" element={<FacilityDeepdivePage />} />
-          <Route path="sources" element={<SourceDashboardsPage />} />
-        </Route>
+          {/* The dashboard shell — Home lives outside it and links in here. */}
+          <Route path="/app" element={<AppShell />}>
+            <Route index element={<Navigate to="/app/overview" replace />} />
+            <Route path="overview" element={<OverviewPage />} />
+            <Route path="readiness" element={<BlockPage block="Facility Readiness" />} />
+            <Route path="stock" element={<BlockPage block="Stock Status" />} />
+            <Route path="service" element={<BlockPage block="Service Delivery" />} />
+            <Route path="trends" element={<TrendPage />} />
+            <Route path="facilities" element={<FacilityDeepdivePage />} />
+            <Route path="sources" element={<SourceDashboardsPage />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
       <Toaster />
     </>
   );

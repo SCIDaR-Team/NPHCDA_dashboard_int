@@ -1,15 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Menu, SlidersHorizontal, Search, X } from 'lucide-react';
+import { Menu, SlidersHorizontal, Search, X, Clock } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { FilterDrawer } from './FilterDrawer';
 import { GlobalSearch } from './GlobalSearch';
-import { ThemeToggle } from './TopbarMenus';
+import { ThemeToggle, ColorBlindToggle } from './TopbarMenus';
 import { NAV_ITEMS } from '@/app/navigation';
 import { useFilterStore } from '@/store/filterStore';
-import { Badge } from '@/components/ui';
+import { useFilterUrlSync } from '@/hooks/useFilterUrlSync';
+import { useThemeStore } from '@/store/themeStore';
+import { Badge, Tooltip } from '@/components/ui';
 import { scopeLabel } from '@/data/calculations';
+import { useAsync } from '@/hooks/useAsync';
+import { getDataSource } from '@/data/datasource';
+import { formatDate, relativeTime } from '@/lib/freshness';
 
 export function AppShell() {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -18,6 +23,15 @@ export function AppShell() {
   const location = useLocation();
   const filter = useFilterStore();
   const activeCount = filter.activeCount();
+  // Keep the global filter scope reflected in the URL (shareable deep links).
+  useFilterUrlSync();
+  // The CVD preference is baked into memoised chart options (via heatColor), so a
+  // plain re-render wouldn't recolour them. Keying the routed subtree on it forces
+  // a full remount → every chart/table/map recomputes with the new scale at once.
+  const colorBlindSafe = useThemeStore((s) => s.colorBlindSafe);
+
+  const ds = getDataSource();
+  const { data: snapMeta } = useAsync(() => ds.getSnapshotMeta());
 
   const current = NAV_ITEMS.find((n) => location.pathname.startsWith(n.to));
 
@@ -113,6 +127,19 @@ export function AppShell() {
           )}
 
           <div className="ml-auto flex items-center gap-1">
+            {snapMeta?.generatedAt && (
+              <Tooltip
+                content={`Snapshot generated ${formatDate(snapMeta.generatedAt)}${
+                  snapMeta.period?.to ? ` · data through ${snapMeta.period.to}` : ''
+                }`}
+              >
+                <span className="mr-1 hidden items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] text-muted xl:flex">
+                  <Clock size={14} className="text-muted-2" />
+                  <span className="hidden 2xl:inline">Data as of</span> {formatDate(snapMeta.generatedAt)}
+                  <span className="text-muted-2">· {relativeTime(snapMeta.generatedAt)}</span>
+                </span>
+              </Tooltip>
+            )}
             <button
               onClick={() => setSearchOpen(true)}
               aria-label="Search (Ctrl or Cmd + K)"
@@ -122,6 +149,7 @@ export function AppShell() {
               <span className="hidden lg:inline">Search…</span>
               <kbd className="hidden rounded border border-border px-1 text-[11px] lg:inline">⌘K</kbd>
             </button>
+            <ColorBlindToggle />
             <ThemeToggle />
           </div>
         </header>
@@ -129,7 +157,7 @@ export function AppShell() {
         {/* Routed page */}
         <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
           <motion.div
-            key={location.pathname}
+            key={`${location.pathname}-${colorBlindSafe ? 'cvd' : 'std'}`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
