@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Table2,
   LayoutGrid,
+  ClipboardCheck,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockName } from '@/data/types';
@@ -72,6 +73,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Facility Deepdive',
     icon: Table2,
     description: 'Searchable State → LGA → Facility matrix.',
+  },
+  {
+    to: '/app/scorecard',
+    label: 'Scorecard',
+    icon: ClipboardCheck,
+    description: 'National / state / LGA A–F grades and a traffic-light matrix of building-block sub-scores.',
   },
   {
     to: '/app/sources',

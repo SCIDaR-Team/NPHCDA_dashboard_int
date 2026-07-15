@@ -305,6 +305,7 @@ interface DimCache {
   val: Record<string, Record<string, ScopedMeasure>> | null;
 }
 const stateCache: DimCache = { facts: null, val: null };
+const lgaCache: DimCache = { facts: null, val: null };
 const facilityCache: DimCache = { facts: null, val: null };
 
 /* ------------------------------------------------------------------ *
@@ -423,6 +424,34 @@ export const HIDE_ZERO_DISTRIBUTION_INDICATORS = new Set([
 export function stateMeasures(indicatorName: string): Record<string, ScopedMeasure> {
   if (indicatorName === FUNCTIONAL_STATUS_INDICATOR) return functionalStatusByState();
   return memoDim(stateCache, (r) => r.state)[indicatorName] ?? {};
+}
+
+/**
+ * Composite key for the per-LGA distribution: `state|lga`. LGA names REPEAT across
+ * states (e.g. "Bosso", "Gwer"), so keying by bare LGA would pool unrelated LGAs;
+ * pairing with the state keeps each administrative LGA separate. State/LGA never
+ * contain "|", so parseFacilityKey-style splitting is safe.
+ */
+const lgaKeyOf = (r: EngineRecord): string | undefined =>
+  r.state && r.lga ? `${r.state}|${r.lga}` : undefined;
+
+/** Split an `state|lga` distribution key back into its parts. */
+export function parseLgaKey(key: string): { state: string; lga: string } {
+  const [state = '', ...rest] = key.split('|');
+  return { state, lga: rest.join('|') };
+}
+
+/**
+ * All real per-LGA measurements for an indicator, keyed by `state|lga`. PFMO IS kept
+ * here (unlike the per-facility grain): a per-LGA aggregate of PFMO's facility-months
+ * is meaningful and there are only a few hundred LGAs, so it renders and computes fine.
+ * Functional status (#30-33) is MAMII LGA-aggregate and has no honest per-LGA
+ * single-figure goodness in this distribution, so it is omitted at the LGA grain.
+ */
+export function lgaMeasures(indicatorName: string): Record<string, ScopedMeasure> {
+  if (AGGREGATE_ONLY_INDICATORS.has(indicatorName)) return {};
+  if (indicatorName === FUNCTIONAL_STATUS_INDICATOR) return {};
+  return memoDim(lgaCache, lgaKeyOf)[indicatorName] ?? {};
 }
 
 /**

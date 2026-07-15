@@ -1,0 +1,35 @@
+name: CI
+
+# Gate every push and PR on the calc-engine unit tests, the TypeScript typecheck,
+# and a production build. Lint is intentionally NOT gated here: the repo carries a
+# few known, unrelated lint findings that predate CI, and failing the pipeline on
+# them would block unrelated work. Run `npm run lint` locally for style feedback.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build

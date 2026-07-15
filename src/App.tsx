@@ -14,6 +14,7 @@ import { AppShell } from '@/components/layout/AppShell';
 // to the default that React.lazy expects.
 const HomePage = lazy(() => import('@/features/dashboard/HomePage').then((m) => ({ default: m.HomePage })));
 const OverviewPage = lazy(() => import('@/features/dashboard/OverviewPage').then((m) => ({ default: m.OverviewPage })));
+const ScorecardPage = lazy(() => import('@/features/dashboard/ScorecardPage').then((m) => ({ default: m.ScorecardPage })));
 const BlockPage = lazy(() => import('@/features/dashboard/BlockPage').then((m) => ({ default: m.BlockPage })));
 const TrendPage = lazy(() => import('@/features/dashboard/TrendPage').then((m) => ({ default: m.TrendPage })));
 const FacilityDeepdivePage = lazy(() =>
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Navigate to="/app/overview" replace />} />
             <Route path="overview" element={<OverviewPage />} />
+            <Route path="scorecard" element={<ScorecardPage />} />
             <Route path="readiness" element={<BlockPage block="Facility Readiness" />} />
             <Route path="stock" element={<BlockPage block="Stock Status" />} />
             <Route path="service" element={<BlockPage block="Service Delivery" />} />
