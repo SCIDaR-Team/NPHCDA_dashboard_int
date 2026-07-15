@@ -16,6 +16,7 @@ const HomePage = lazy(() => import('@/features/dashboard/HomePage').then((m) => 
 const OverviewPage = lazy(() => import('@/features/dashboard/OverviewPage').then((m) => ({ default: m.OverviewPage })));
 const ScorecardPage = lazy(() => import('@/features/dashboard/ScorecardPage').then((m) => ({ default: m.ScorecardPage })));
 const LeagueTablesPage = lazy(() => import('@/features/dashboard/LeagueTablesPage').then((m) => ({ default: m.LeagueTablesPage })));
+const DataQualityPage = lazy(() => import('@/features/dashboard/DataQualityPage').then((m) => ({ default: m.DataQualityPage })));
 const BlockPage = lazy(() => import('@/features/dashboard/BlockPage').then((m) => ({ default: m.BlockPage })));
 const TrendPage = lazy(() => import('@/features/dashboard/TrendPage').then((m) => ({ default: m.TrendPage })));
 const FacilityDeepdivePage = lazy(() =>
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="overview" element={<OverviewPage />} />
             <Route path="scorecard" element={<ScorecardPage />} />
             <Route path="league" element={<LeagueTablesPage />} />
+            <Route path="data-quality" element={<DataQualityPage />} />
             <Route path="readiness" element={<BlockPage block="Facility Readiness" />} />
             <Route path="stock" element={<BlockPage block="Stock Status" />} />
             <Route path="service" element={<BlockPage block="Service Delivery" />} />

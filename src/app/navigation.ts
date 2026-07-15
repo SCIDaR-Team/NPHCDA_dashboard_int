@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   ClipboardCheck,
   ListOrdered,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockName } from '@/data/types';
@@ -86,6 +87,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'League Tables',
     icon: ListOrdered,
     description: 'Rank states, LGAs and facilities by composite or any indicator, with year-over-year movement.',
+  },
+  {
+    to: '/app/data-quality',
+    label: 'Data Quality',
+    icon: ShieldCheck,
+    description: 'Completeness, timeliness, missing data, small samples and outliers across every indicator.',
   },
   {
     to: '/app/sources',
