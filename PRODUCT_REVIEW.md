@@ -196,18 +196,23 @@ Delivered, this positions the product alongside Power BI / Tableau / ArcGIS Dash
 
 > **Coverage guarantee:** Phases 1–4 are a **strict superset** of the Quick Wins, Medium-Term Enhancements, and Long-Term Vision lists above — every item in those lists appears in exactly one phase below, tagged with its origin: **[QW]** = Quick Win, **[MT]** = Medium-Term, **[LT]** = Long-Term Vision, **[RF]** = item that previously lived only in the Recommended Features table. Nothing in the three prose lists is dropped.
 
-### Phase 1 — Immediate (highest impact, low effort)
+### Phase 1 — Immediate (highest impact, low effort) — ✅ IMPLEMENTED
 *Surface what already exists; remove trust and performance friction.*
-- "Data as of…" refresh timestamp + per-source freshness badges. **[QW]**
-- Indicator metadata panel (definitions, numerator/denominator, lineage). **[QW]**
-- Route-level code-splitting. **[QW]**
-- Lazy-load PFMO registry (defer `pfmoRegistry()` to its tab) **and** add an explicit registry loading flag (replace the `pfmoBase.length === 0` inference). **[QW]**
-- Shareable deep-link URLs. **[QW]**
-- Best/worst-performer chips on block headers. **[QW]**
-- "Copy figure / cite this" on KPI cards and modal rows. **[QW]**
-- Map keyboard access + "view as table" fallback. **[QW]**
-- Colour-blind-safe palette option (colour never the sole encoder). **[QW]**
-- Name + explain the composite score on the Overview map. **[QW]**
+
+**Status: fully delivered and shipped to `main` (commit `c7d5f58`, 2026-07-15).** All items below are live; typecheck + build pass and the changes were verified in-browser. Several enhancements beyond the original scope were added during implementation (noted inline).
+
+- ✅ "Data as of…" refresh timestamp in the app shell + per-source freshness/lineage panel on the Source Dashboards page. Added `getSnapshotMeta()` to the `DataSource` contract (Snapshot + Api). **[QW]**
+- ✅ Indicator metadata panel — definition, numerator/denominator, source lineage, last refresh — in the deep-dive modal; the redundant subtitle under the title was removed. **[QW]**
+- ✅ Route-level code-splitting (`React.lazy` + `Suspense`); each page + heavy libs (echarts/xlsx/jspdf) are now on-demand chunks. **[QW]**
+- ✅ Lazy-load PFMO registry (deferred `pfmoRegistry()` until its tab opens) + explicit loading flag (replaced the `pfmoBase.length === 0` inference). **[QW]**
+- ✅ Shareable deep-link URLs — global filter scope ⇄ querystring (`useFilterUrlSync`). **[QW]**
+- ✅ Best/worst-performer chips on each thematic block header. **[QW]**
+- ✅ "Copy figure / cite this" on KPI cards **and** a citation copy in the deep-dive modal (`CopyButton`). **[QW]**
+- ✅ Map keyboard access (focusable, operable states with aria-labels) + accessible "view as table" fallback. Table is **sortable by name or value (asc/desc)** and includes a **Donors column** (added during implementation). **[QW]**
+- ✅ Colour-blind-safe (viridis) heat-scale toggle, applied app-wide (routed subtree is keyed on the CVD flag so every chart/map/table recomputes on toggle). **[QW]**
+- ✅ Name + explain the composite score on the Overview map (caption). **[QW]**
+
+**Bonus (added on request during Phase 1):** downloadable deep-dive charts and the state map as PNG/PDF images, each with an **export-only title** baked into the file; the map export contains only the map + legend (no controls/caption) with clean margins. `ExportMenu` gained `onBeforeCapture`/`onAfterCapture` hooks to support this.
 
 ### Phase 2 — Core product & analytics
 *The management-instrument layer.*
