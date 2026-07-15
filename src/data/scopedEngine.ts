@@ -454,6 +454,72 @@ export function lgaMeasures(indicatorName: string): Record<string, ScopedMeasure
   return memoDim(lgaCache, lgaKeyOf)[indicatorName] ?? {};
 }
 
+/* ------------------------------------------------------------------ *
+ * Year-keyed distributions (for league-table period-over-period movement).
+ * A scope's yearly level is the point-in-time value of the records that carry a
+ * reporting period in that calendar year (latest-per-facility within the year).
+ * Records with no period (Sheet baseline, MAMII) never enter these buckets, so
+ * indicators sourced only from them honestly show NO movement.
+ * ------------------------------------------------------------------ */
+const stateYearCache: DimCache = { facts: null, val: null };
+const lgaYearCache: DimCache = { facts: null, val: null };
+
+const stateYearKeyOf = (r: EngineRecord): string | undefined => {
+  if (!r.state) return undefined;
+  const p = parsePeriod(r.month);
+  return p ? `${r.state}|${p.yr}` : undefined;
+};
+const lgaYearKeyOf = (r: EngineRecord): string | undefined => {
+  if (!r.state || !r.lga) return undefined;
+  const p = parsePeriod(r.month);
+  return p ? `${r.state}|${r.lga}|${p.yr}` : undefined;
+};
+
+/** `${scopeKey}|${year}` → measure, for one indicator. `scopeKey` is the state (or
+ *  `state|lga`); the trailing segment is the 4-digit year. */
+function stateYearlyMeasures(indicatorName: string): Record<string, ScopedMeasure> {
+  return memoDim(stateYearCache, stateYearKeyOf)[indicatorName] ?? {};
+}
+function lgaYearlyMeasures(indicatorName: string): Record<string, ScopedMeasure> {
+  return memoDim(lgaYearCache, lgaYearKeyOf)[indicatorName] ?? {};
+}
+
+export interface Movement {
+  /** Signed change in raw pct between the two most recent years with data. */
+  delta: number;
+  dir: 'up' | 'down' | 'flat';
+  fromYear: string;
+  toYear: string;
+}
+
+/**
+ * Year-over-year movement of an indicator's raw pct for every scope key at the given
+ * grain (state or state|lga). For each scope, diffs the value of its two most recent
+ * years that both have data. Scopes with fewer than two measured years are omitted
+ * (→ the league table shows "—" for movement, never a fabricated trend).
+ */
+export function indicatorMovement(indicatorName: string, level: 'state' | 'lga'): Record<string, Movement> {
+  const yearly = level === 'lga' ? lgaYearlyMeasures(indicatorName) : stateYearlyMeasures(indicatorName);
+  // Regroup `${scopeKey}|${year}` → scopeKey → { year: pct }.
+  const byScope: Record<string, Record<string, number>> = {};
+  for (const [k, m] of Object.entries(yearly)) {
+    const segs = k.split('|');
+    const year = segs.pop()!;
+    const scopeKey = segs.join('|');
+    (byScope[scopeKey] ||= {})[year] = m.pct;
+  }
+  const out: Record<string, Movement> = {};
+  for (const [scopeKey, byYear] of Object.entries(byScope)) {
+    const years = Object.keys(byYear).sort();
+    if (years.length < 2) continue;
+    const toYear = years[years.length - 1];
+    const fromYear = years[years.length - 2];
+    const delta = +(byYear[toYear] - byYear[fromYear]).toFixed(1);
+    out[scopeKey] = { delta, dir: delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat', fromYear, toYear };
+  }
+  return out;
+}
+
 /**
  * Composite key for the per-facility distribution. MAMII (and some ODK) datasets
  * REUSE the same facility NAME across different states — e.g. "Nasarawa Primary

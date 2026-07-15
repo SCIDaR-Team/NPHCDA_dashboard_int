@@ -8,6 +8,7 @@ import {
   Table2,
   LayoutGrid,
   ClipboardCheck,
+  ListOrdered,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockName } from '@/data/types';
@@ -79,6 +80,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Scorecard',
     icon: ClipboardCheck,
     description: 'National / state / LGA A–F grades and a traffic-light matrix of building-block sub-scores.',
+  },
+  {
+    to: '/app/league',
+    label: 'League Tables',
+    icon: ListOrdered,
+    description: 'Rank states, LGAs and facilities by composite or any indicator, with year-over-year movement.',
   },
   {
     to: '/app/sources',
