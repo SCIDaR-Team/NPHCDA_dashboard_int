@@ -2,6 +2,7 @@ import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Skeleton, Badge, CopyButton } from '@/components/ui';
 import { IndicatorViz, vizFor, vizEmbedsValue } from '@/components/dashboard/indicatorViz';
+import { TargetChip } from '@/components/dashboard/TargetChip';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { useSnapshotStore } from '@/store/snapshotStore';
 import { scopedKpiValue, scopeLabel, statusFor, looksLikePercent, scopedSiblings, trendDelta, trendScopeActive } from '@/data/calculations';
@@ -176,7 +177,12 @@ export function KpiStrip({
                       {eff.delta}
                     </div>
                   )}
-                  <div className="mt-0.5 text-[12px] text-muted">{decodeHtml(card.target)}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-muted">
+                    <span>{decodeHtml(card.target)}</span>
+                    {card.indicator && isPct && (
+                      <TargetChip indicatorName={card.indicator} actualPct={scoped.pct} />
+                    )}
+                  </div>
                   {scoped.scoped && (
                     <div className="mt-0.5 text-[12px] font-semibold text-brand-bright">
                       Scoped to: {scope}

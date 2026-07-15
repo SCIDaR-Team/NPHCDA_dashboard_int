@@ -14,6 +14,7 @@ import { coverageNote, heatColor, statusFor, stateMeasures, facilityMeasures, lo
 import { CHART_GREEN, CHART_GREEN_SOFT, secondaryColor } from '@/components/charts/palette';
 import { functionalStatusStateSplits, FUNCTIONAL_STATUS_INDICATOR, HIDE_ZERO_DISTRIBUTION_INDICATORS, parseFacilityKey } from '@/data/scopedEngine';
 import { getDataSource } from '@/data/datasource';
+import { TargetChip } from '@/components/dashboard/TargetChip';
 import { useAsync } from '@/hooks/useAsync';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { Indicator } from '@/data/types';
@@ -376,6 +377,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                 <span className="font-semibold text-text-soft">Data as of:</span> {formatDate(snapMeta.generatedAt)}
               </span>
             )}
+            <TargetChip indicatorName={ind.name} actualPct={ind.pct} />
           </div>
           <CopyButton
             text={`${cleanName(ind.name)}: ${decodeHtml(ind.value)}${

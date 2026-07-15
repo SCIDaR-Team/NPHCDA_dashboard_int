@@ -9,6 +9,7 @@ import {
   nationalScorecardRow,
   BLOCK_NAMES,
 } from './scorecard';
+import { varianceFor } from './targets';
 import type { Blocks, Indicator } from './types';
 
 /** Minimal indicator factory for the pure-core tests. */
@@ -111,5 +112,27 @@ describe('gradeableByBlock + nationalScorecardRow', () => {
     expect(BLOCK_NAMES).toHaveLength(3);
     const row = nationalScorecardRow(blocks);
     BLOCK_NAMES.forEach((bn) => expect(row.blocks[bn]).toBeDefined());
+  });
+});
+
+describe('varianceFor', () => {
+  it('computes signed variance against a national target', () => {
+    const v = varianceFor('Proportion of children &lt;1 year who received Penta 3', 86.4);
+    expect(v).not.toBeNull();
+    expect(v!.target).toBe(95);
+    expect(v!.delta).toBe(-8.6);
+    expect(v!.meets).toBe(false);
+  });
+
+  it('marks at/above target as met', () => {
+    const v = varianceFor('Proportion of children &lt;1 year who received Penta 3', 95);
+    expect(v!.meets).toBe(true);
+    expect(v!.delta).toBe(0);
+  });
+
+  it('returns null for untargeted indicators or empty values', () => {
+    expect(varianceFor('Some untargeted indicator', 50)).toBeNull();
+    expect(varianceFor('Proportion of children &lt;1 year who received Penta 3', 0)).toBeNull();
+    expect(varianceFor('Proportion of children &lt;1 year who received Penta 3', undefined)).toBeNull();
   });
 });

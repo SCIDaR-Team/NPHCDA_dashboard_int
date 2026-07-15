@@ -2,6 +2,7 @@ import { Info, ChevronRight, Inbox, EyeOff } from 'lucide-react';
 import { Card, Badge, Tooltip } from '@/components/ui';
 import { RingProgress } from '@/components/charts/RingProgress';
 import { IndicatorViz, vizFor, isWideViz, vizEmbedsValue } from '@/components/dashboard/indicatorViz';
+import { TargetChip } from '@/components/dashboard/TargetChip';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
 import { useSnapshotStore } from '@/store/snapshotStore';
 import {
@@ -236,11 +237,14 @@ export function IndicatorCard({
       {showMeta && <p className="mt-2.5 text-[12px] leading-relaxed text-muted">{metaText}</p>}
 
       <div className="flex items-center justify-between gap-2 pt-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {ind.coverage && covLabel[ind.coverage] && (
             <span className="rounded-full bg-bg-elev-2 px-2 py-0.5 text-[11px] font-bold uppercase text-muted">
               {covLabel[ind.coverage]}
             </span>
+          )}
+          {!isGap && !outOfScope && isPercentValue && (
+            <TargetChip indicatorName={ind.name} actualPct={displayPct} />
           )}
           {scopeActive && (eff || split) && !outOfScope && (
             <span className="text-[11px] font-semibold text-brand-bright">Scoped</span>
