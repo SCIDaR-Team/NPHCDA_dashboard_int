@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Sun, Moon, Settings, User as UserIcon, CheckCheck, Eye } from 'lucide-react';
+import { Bell, Sun, Moon, Settings, User as UserIcon, CheckCheck, Eye, Trash2, BellOff, Inbox } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStore } from '@/store/themeStore';
 import { useNotificationStore } from '@/store/notificationStore';
+import { Drawer } from '@/components/ui/Drawer';
 import { useAuthStore } from '@/features/auth/authStore';
 
 export function ThemeToggle() {
@@ -60,9 +61,20 @@ const toneDot: Record<string, string> = {
 
 export function NotificationsMenu() {
   const [open, setOpen] = useState(false);
-  const { notifications, markAllRead, markRead, unreadCount } = useNotificationStore();
+  const [centerOpen, setCenterOpen] = useState(false);
+  const notifications = useNotificationStore((s) => s.notifications);
+  const markAllRead = useNotificationStore((s) => s.markAllRead);
+  const markRead = useNotificationStore((s) => s.markRead);
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   const ref = useOutside(() => setOpen(false));
+  const navigate = useNavigate();
   const count = unreadCount();
+
+  const openItem = (id: string, href?: string) => {
+    markRead(id);
+    setOpen(false);
+    if (href) navigate(href);
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -92,37 +104,161 @@ export function NotificationsMenu() {
           >
             <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
               <span className="text-sm font-bold text-text">Notifications</span>
-              <button
-                onClick={markAllRead}
-                className="flex items-center gap-1 text-xs font-semibold text-brand-bright hover:underline"
-              >
-                <CheckCheck size={13} /> Mark all read
-              </button>
+              {notifications.length > 0 && (
+                <button
+                  onClick={markAllRead}
+                  className="flex items-center gap-1 text-xs font-semibold text-brand-bright hover:underline"
+                >
+                  <CheckCheck size={13} /> Mark all read
+                </button>
+              )}
             </div>
             <div className="max-h-96 overflow-y-auto">
-              {notifications.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => markRead(n.id)}
-                  className="flex w-full gap-3 border-b border-border-soft px-4 py-3 text-left transition-colors last:border-0 hover:bg-bg-elev-2"
-                >
-                  <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${toneDot[n.tone]}`} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`truncate text-sm ${n.read ? 'font-medium text-text-soft' : 'font-bold text-text'}`}>
-                        {n.title}
-                      </span>
-                      <span className="flex-shrink-0 text-[11px] text-muted">{n.time}</span>
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-muted">
+                  <BellOff size={20} className="text-muted-2" />
+                  <span className="text-sm">You're all caught up.</span>
+                </div>
+              ) : (
+                notifications.slice(0, 5).map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => openItem(n.id, n.href)}
+                    className="flex w-full gap-3 border-b border-border-soft px-4 py-3 text-left transition-colors last:border-0 hover:bg-bg-elev-2"
+                  >
+                    <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${toneDot[n.tone]}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`truncate text-sm ${n.read ? 'font-medium text-text-soft' : 'font-bold text-text'}`}>
+                          {n.title}
+                        </span>
+                        <span className="flex-shrink-0 text-[11px] text-muted">{n.time}</span>
+                      </div>
+                      <p className="mt-0.5 text-xs leading-relaxed text-muted">{n.description}</p>
                     </div>
-                    <p className="mt-0.5 text-xs leading-relaxed text-muted">{n.description}</p>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))
+              )}
             </div>
+            <button
+              onClick={() => {
+                setOpen(false);
+                setCenterOpen(true);
+              }}
+              className="block w-full border-t border-border-soft px-4 py-2.5 text-center text-xs font-bold text-brand-bright transition-colors hover:bg-bg-elev-2"
+            >
+              View all notifications
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <NotificationCenter
+        open={centerOpen}
+        onClose={() => setCenterOpen(false)}
+        onOpenItem={(id, href) => {
+          markRead(id);
+          setCenterOpen(false);
+          if (href) navigate(href);
+        }}
+      />
     </div>
+  );
+}
+
+/** Full notification centre — the complete alert list with all/unread filtering,
+ *  per-item dismiss and bulk actions, in a slide-over drawer. */
+function NotificationCenter({
+  open,
+  onClose,
+  onOpenItem,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpenItem: (id: string, href?: string) => void;
+}) {
+  const notifications = useNotificationStore((s) => s.notifications);
+  const markAllRead = useNotificationStore((s) => s.markAllRead);
+  const removeNotification = useNotificationStore((s) => s.removeNotification);
+  const clearNotifications = useNotificationStore((s) => s.clearNotifications);
+  const [tab, setTab] = useState<'all' | 'unread'>('all');
+
+  const shown = useMemo(
+    () => (tab === 'unread' ? notifications.filter((n) => !n.read) : notifications),
+    [notifications, tab]
+  );
+
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      side="right"
+      width={400}
+      title="Notification centre"
+      subtitle="Alerts derived from the current data snapshot"
+      footer={
+        notifications.length > 0 && (
+          <div className="flex items-center justify-between">
+            <button onClick={markAllRead} className="flex items-center gap-1.5 text-xs font-semibold text-brand-bright hover:underline">
+              <CheckCheck size={14} /> Mark all read
+            </button>
+            <button onClick={clearNotifications} className="flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-danger">
+              <Trash2 size={14} /> Clear all
+            </button>
+          </div>
+        )
+      }
+    >
+      <div className="mb-3 inline-flex rounded-lg border border-border bg-bg-elev p-0.5">
+        {(['all', 'unread'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            aria-pressed={tab === t}
+            className={`rounded-md px-3 py-1 text-xs font-semibold capitalize transition-colors ${
+              tab === t ? 'bg-brand text-white' : 'text-muted hover:text-text'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {shown.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-12 text-center text-muted">
+          <Inbox size={22} className="text-muted-2" />
+          <span className="text-sm">{tab === 'unread' ? 'No unread notifications.' : 'No notifications.'}</span>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {shown.map((n) => (
+            <li
+              key={n.id}
+              className={`group rounded-lg border px-3 py-2.5 ${n.read ? 'border-border-soft bg-bg-elev' : 'border-border bg-bg-elev-2/50'}`}
+            >
+              <div className="flex items-start gap-2.5">
+                <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${toneDot[n.tone]}`} />
+                <button onClick={() => onOpenItem(n.id, n.href)} className="min-w-0 flex-1 text-left">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-sm ${n.read ? 'font-medium text-text-soft' : 'font-bold text-text'}`}>{n.title}</span>
+                    <span className="flex-shrink-0 text-[11px] text-muted">{n.time}</span>
+                  </div>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted">{n.description}</p>
+                  {n.href && <span className="mt-1 inline-block text-[11px] font-semibold text-brand-bright">Open →</span>}
+                </button>
+                <button
+                  onClick={() => removeNotification(n.id)}
+                  aria-label="Dismiss notification"
+                  className="rounded p-0.5 text-muted-2 opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Drawer>
   );
 }
 

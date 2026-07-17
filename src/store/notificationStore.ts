@@ -16,6 +16,8 @@ export interface AppNotification {
   description: string;
   time: string;
   read: boolean;
+  /** Optional in-app route to open when the notification is clicked. */
+  href?: string;
 }
 
 interface NotificationStore {
@@ -23,6 +25,11 @@ interface NotificationStore {
   notifications: AppNotification[];
   toast: (t: Omit<Toast, 'id'>) => void;
   dismiss: (id: string) => void;
+  /** Replace the notification list (e.g. with alerts derived from the snapshot),
+   *  preserving the read state of any notification whose id already exists. */
+  setNotifications: (list: AppNotification[]) => void;
+  removeNotification: (id: string) => void;
+  clearNotifications: () => void;
   markAllRead: () => void;
   markRead: (id: string) => void;
   unreadCount: () => number;
@@ -67,6 +74,14 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     setTimeout(() => get().dismiss(id), 4200);
   },
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  setNotifications: (list) =>
+    set((s) => {
+      // Preserve read state for notifications that persist across a re-derivation.
+      const readIds = new Set(s.notifications.filter((n) => n.read).map((n) => n.id));
+      return { notifications: list.map((n) => (readIds.has(n.id) ? { ...n, read: true } : n)) };
+    }),
+  removeNotification: (id) => set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) })),
+  clearNotifications: () => set({ notifications: [] }),
   markAllRead: () =>
     set((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
   markRead: (id) =>

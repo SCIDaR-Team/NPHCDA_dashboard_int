@@ -5,13 +5,15 @@ import { Menu, SlidersHorizontal, Search, X, Clock } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { FilterDrawer } from './FilterDrawer';
 import { GlobalSearch } from './GlobalSearch';
-import { ThemeToggle, ColorBlindToggle } from './TopbarMenus';
+import { ThemeToggle, ColorBlindToggle, NotificationsMenu } from './TopbarMenus';
 import { NAV_ITEMS } from '@/app/navigation';
 import { useFilterStore } from '@/store/filterStore';
 import { useFilterUrlSync } from '@/hooks/useFilterUrlSync';
 import { useThemeStore } from '@/store/themeStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import { Badge, Tooltip } from '@/components/ui';
 import { scopeLabel } from '@/data/calculations';
+import { deriveAlerts } from '@/data/alerts';
 import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { formatDate, relativeTime } from '@/lib/freshness';
@@ -32,6 +34,15 @@ export function AppShell() {
 
   const ds = getDataSource();
   const { data: snapMeta } = useAsync(() => ds.getSnapshotMeta());
+  const { data: blocks } = useAsync(() => ds.getBlocks());
+
+  // Populate the notification centre with alerts derived from the real snapshot
+  // (below-target indicators, failing states, data gaps, freshness). Read state of
+  // any surviving notification is preserved across re-derivations by the store.
+  const setNotifications = useNotificationStore((s) => s.setNotifications);
+  useEffect(() => {
+    if (blocks) setNotifications(deriveAlerts(blocks, snapMeta ?? null));
+  }, [blocks, snapMeta, setNotifications]);
 
   const current = NAV_ITEMS.find((n) => location.pathname.startsWith(n.to));
 
@@ -149,6 +160,7 @@ export function AppShell() {
               <span className="hidden lg:inline">Search…</span>
               <kbd className="hidden rounded border border-border px-1 text-[11px] lg:inline">⌘K</kbd>
             </button>
+            <NotificationsMenu />
             <ColorBlindToggle />
             <ThemeToggle />
           </div>
