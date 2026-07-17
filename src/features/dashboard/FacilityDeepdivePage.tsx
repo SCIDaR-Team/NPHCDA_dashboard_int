@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Layers, RotateCcw } from 'lucide-react';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, Badge, Input, Select, EmptyState, GroupedDropdownBar, type DropdownGroup } from '@/components/ui';
@@ -657,9 +658,21 @@ export function FacilityDeepdivePage() {
                         <td className="px-3 py-2 text-muted">{r.state}</td>
                         <td className="px-3 py-2 text-text-soft">{r.lga}</td>
                         <td className="px-3 py-2 font-medium text-text">
-                          {r.facility}
-                          {isRegistry && (r as PfmoFacilityRow).code && (
-                            <span className="ml-1.5 text-[12px] font-normal text-muted">{(r as PfmoFacilityRow).code}</span>
+                          {isRegistry ? (
+                            <>
+                              {r.facility}
+                              {(r as PfmoFacilityRow).code && (
+                                <span className="ml-1.5 text-[12px] font-normal text-muted">{(r as PfmoFacilityRow).code}</span>
+                              )}
+                            </>
+                          ) : (
+                            // Drill through to the facility's full cross-block profile.
+                            <Link
+                              to={`/app/facility/${encodeURIComponent(facKey(r as FacilityRow))}`}
+                              className="rounded text-text transition-colors hover:text-brand-bright hover:underline focus-visible:ring-2 focus-visible:ring-brand/60"
+                            >
+                              {r.facility}
+                            </Link>
                           )}
                         </td>
                         {isRegistry

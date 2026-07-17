@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowUp, ArrowDown, Minus, Info } from 'lucide-react';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, ErrorState, Skeleton, Card } from '@/components/ui';
@@ -188,12 +189,21 @@ export function LeagueTablesPage() {
                   <tr key={r.key} className="border-t border-border-soft hover:bg-bg-elev-2/50">
                     <td className="px-3 py-2 tabular-nums text-muted">{i + 1}</td>
                     <td className="px-3 py-2">
-                      <button
-                        onClick={() => scopeTo(r)}
-                        className="text-left font-medium text-text hover:text-brand-bright focus-visible:ring-2 focus-visible:ring-brand/60"
-                      >
-                        {r.label}
-                      </button>
+                      {level === 'facility' ? (
+                        <Link
+                          to={`/app/facility/${encodeURIComponent(r.key)}`}
+                          className="font-medium text-text hover:text-brand-bright hover:underline focus-visible:ring-2 focus-visible:ring-brand/60"
+                        >
+                          {r.label}
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => scopeTo(r)}
+                          className="text-left font-medium text-text hover:text-brand-bright focus-visible:ring-2 focus-visible:ring-brand/60"
+                        >
+                          {r.label}
+                        </button>
+                      )}
                     </td>
                     {level !== 'state' && <td className="px-3 py-2 text-muted">{r.state}</td>}
                     <td className="px-3 py-2">
