@@ -11,6 +11,7 @@ import {
   ListOrdered,
   ShieldCheck,
   Scale,
+  Columns3,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockName } from '@/data/types';
@@ -100,6 +101,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Equity Analysis',
     icon: Scale,
     description: 'Compare performance across geopolitical zones and donor-supported vs non-donor states.',
+  },
+  {
+    to: '/app/compare',
+    label: 'Compare Scopes',
+    icon: Columns3,
+    description: 'Put National and up to four states side by side across grades, sub-scores and indicators.',
   },
   {
     to: '/app/sources',
