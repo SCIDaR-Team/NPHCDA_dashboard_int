@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, ErrorState, Skeleton, Card, Badge } from '@/components/ui';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
 import { TargetChip } from '@/components/dashboard/TargetChip';
+import { Annotations } from '@/components/dashboard/Annotations';
 import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { useFilterStore } from '@/store/filterStore';
@@ -218,6 +219,10 @@ export function FacilityProfilePage() {
           );
         })
       )}
+
+      <SectionBlock title="Notes">
+        <Annotations targetType="facility" targetId={facilityKey} targetLabel={`${facility}, ${state}`} compact />
+      </SectionBlock>
     </div>
   );
 }

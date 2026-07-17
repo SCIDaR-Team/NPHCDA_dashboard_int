@@ -15,6 +15,7 @@ import { CHART_GREEN, CHART_GREEN_SOFT, secondaryColor } from '@/components/char
 import { functionalStatusStateSplits, FUNCTIONAL_STATUS_INDICATOR, HIDE_ZERO_DISTRIBUTION_INDICATORS, parseFacilityKey } from '@/data/scopedEngine';
 import { getDataSource } from '@/data/datasource';
 import { TargetChip } from '@/components/dashboard/TargetChip';
+import { Annotations } from '@/components/dashboard/Annotations';
 import { useAsync } from '@/hooks/useAsync';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { Indicator } from '@/data/types';
@@ -631,6 +632,10 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
               )}
             </>
           )}
+
+          <div className="mt-5">
+            <Annotations targetType="indicator" targetId={ind.name} targetLabel={cleanName(ind.name)} />
+          </div>
         </>
       )}
     </Modal>
