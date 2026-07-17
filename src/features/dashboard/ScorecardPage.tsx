@@ -3,6 +3,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, ErrorState, Skeleton, Card } from '@/components/ui';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
+import { ExecutiveReportButton } from '@/components/dashboard/ExecutiveReportButton';
 import { ScoreCalcDrawer } from '@/components/dashboard/ScoreCalcDrawer';
 import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
@@ -162,7 +163,10 @@ export function ScorecardPage() {
         title="Scorecard"
         subtitle="Traffic-light performance matrix — each scope graded A–F on an overall composite and on its three building-block sub-scores (Readiness, Stock, Service). Scores are the mean 0–100 performance of the gradeable indicators with real data for that scope."
         actions={
-          <ExportMenu filename={`nphcda-scorecard-${level}`} rows={exportRows} />
+          <>
+            <ExecutiveReportButton />
+            <ExportMenu filename={`nphcda-scorecard-${level}`} rows={exportRows} />
+          </>
         }
       />
 

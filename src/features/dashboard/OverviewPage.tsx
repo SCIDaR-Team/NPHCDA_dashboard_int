@@ -12,6 +12,7 @@ import { RingProgress } from '@/components/charts/RingProgress';
 import { CHART_GREEN } from '@/components/charts/palette';
 import { IndicatorModal } from '@/components/dashboard/IndicatorModal';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
+import { ExecutiveReportButton } from '@/components/dashboard/ExecutiveReportButton';
 import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
@@ -128,6 +129,7 @@ export function OverviewPage() {
       <PageHeader
         title="Overview"
         subtitle="Top-level outcomes, coverage and system & trust indicators. Click a state on the map for its full cross-block profile."
+        actions={<ExecutiveReportButton />}
       />
 
       <KpiStrip groups={kpiGroups} loading={kpiLoading} blocks={blocks} trends={trends} />
