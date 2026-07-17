@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   ListOrdered,
   ShieldCheck,
+  Scale,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockName } from '@/data/types';
@@ -93,6 +94,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Data Quality',
     icon: ShieldCheck,
     description: 'Completeness, timeliness, missing data, small samples and outliers across every indicator.',
+  },
+  {
+    to: '/app/equity',
+    label: 'Equity Analysis',
+    icon: Scale,
+    description: 'Compare performance across geopolitical zones and donor-supported vs non-donor states.',
   },
   {
     to: '/app/sources',

@@ -18,6 +18,7 @@ const ScorecardPage = lazy(() => import('@/features/dashboard/ScorecardPage').th
 const LeagueTablesPage = lazy(() => import('@/features/dashboard/LeagueTablesPage').then((m) => ({ default: m.LeagueTablesPage })));
 const DataQualityPage = lazy(() => import('@/features/dashboard/DataQualityPage').then((m) => ({ default: m.DataQualityPage })));
 const FacilityProfilePage = lazy(() => import('@/features/dashboard/FacilityProfilePage').then((m) => ({ default: m.FacilityProfilePage })));
+const EquityPage = lazy(() => import('@/features/dashboard/EquityPage').then((m) => ({ default: m.EquityPage })));
 const BlockPage = lazy(() => import('@/features/dashboard/BlockPage').then((m) => ({ default: m.BlockPage })));
 const TrendPage = lazy(() => import('@/features/dashboard/TrendPage').then((m) => ({ default: m.TrendPage })));
 const FacilityDeepdivePage = lazy(() =>
@@ -66,6 +67,7 @@ export default function App() {
             {/* Drill-through destination (not in the sidebar) — reached from the
                 Facility Deepdive matrix and the facility league table. */}
             <Route path="facility/:key" element={<FacilityProfilePage />} />
+            <Route path="equity" element={<EquityPage />} />
             <Route path="readiness" element={<BlockPage block="Facility Readiness" />} />
             <Route path="stock" element={<BlockPage block="Stock Status" />} />
             <Route path="service" element={<BlockPage block="Service Delivery" />} />
