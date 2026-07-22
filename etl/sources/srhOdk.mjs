@@ -8,6 +8,7 @@
 import { fetchAllOData } from '../lib/odata.mjs';
 import { dig, num, collectCommStatus, isAvailable, toQuarter, toMonthLabel, isFutureReport } from '../lib/util.mjs';
 import { normState, titleCase, cleanName, zoneForState, donorsForState } from '../lib/states.mjs';
+import { sanitizeRecords } from '../lib/quality.mjs';
 
 const SERVICE_URL = 'https://odk.mine.bz/v1/projects/1239/forms/SRH%20Routine%20tool.svc';
 
@@ -158,7 +159,10 @@ function latestPerFacility(records) {
 
 export async function loadSrhOdk(credentials) {
   const { rows, total } = await fetchAllOData(SERVICE_URL, 'Submissions', credentials);
-  const flat = rows.map(flatten);
+  // Same guards as SFM. SRH is clean today, but the panel is refreshed monthly and
+  // the failure mode is silent, so the check runs here too rather than waiting for
+  // it to appear.
+  const { records: flat } = sanitizeRecords(rows.map(flatten), 'SRH ODK');
   const snapshot = latestPerFacility(flat);
   return {
     name: 'SRH ODK',

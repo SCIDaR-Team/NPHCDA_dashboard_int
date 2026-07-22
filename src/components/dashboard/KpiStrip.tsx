@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Skeleton, Badge, CopyButton } from '@/components/ui';
@@ -62,30 +63,43 @@ export function KpiStrip({
   if (loading || !groups) {
     // Mirror the real grouped 3-column layout so nothing shifts when data resolves.
     return (
-      <div className="grid gap-x-4 gap-y-5 lg:grid-cols-3">
+      <div
+        className="grid gap-x-4 gap-y-5 lg:grid-cols-3 lg:[grid-template-rows:auto_repeat(2,1fr)]"
+      >
         {Array.from({ length: 3 }).map((_, g) => (
-          <div key={g}>
-            <Skeleton className="mb-2 h-3 w-24" />
-            <div className="grid gap-4">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <Skeleton key={i} className="h-56 rounded-card" />
-              ))}
-            </div>
+          <div key={g} className="grid min-w-0 gap-4 lg:row-span-full lg:grid-rows-subgrid">
+            <Skeleton className="h-3 w-24" />
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-full min-h-[336px] rounded-card" />
+            ))}
           </div>
         ))}
       </div>
     );
   }
 
+  // Every column shares ONE set of row tracks (via subgrid), so a card in row 2 of
+  // one group is exactly as tall as row 2 of every other group. Without this each
+  // column is an independent grid and only equalises heights within itself.
+  const rowCount = Math.max(1, ...groups.map((g) => g.cards.length));
+
   return (
-    <div className="grid gap-x-4 gap-y-5 lg:grid-cols-3">
+    <div
+      className="grid gap-x-4 gap-y-5 lg:grid-cols-3 lg:[grid-template-rows:auto_repeat(var(--kpi-rows),1fr)]"
+      style={{ '--kpi-rows': rowCount } as CSSProperties}
+    >
       {groups.map((grp) => (
-        <div key={grp.group}>
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-2">
+        // min-w-0 is load-bearing: grid items default to min-width:auto, so a card
+        // whose content has a wide min-content (the gauge's 0%…100% scale row) would
+        // otherwise stretch its column and squeeze the other two out of alignment.
+        <div
+          key={grp.group}
+          className="grid min-w-0 gap-4 lg:row-span-full lg:grid-rows-subgrid"
+        >
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-2">
             {decodeHtml(grp.group)}
           </p>
-          <div className="grid gap-4">
-            {grp.cards.map((card) => {
+          {grp.cards.map((card) => {
               const scoped = scopedKpiValue(card, filter);
               // Rescope the "over period" delta to the filtered trend when a geo scope
               // is active and this card is trend-backed; else the baked national delta.
@@ -209,8 +223,7 @@ export function KpiStrip({
                   </div>
                 </Card>
               );
-            })}
-          </div>
+          })}
         </div>
       ))}
     </div>

@@ -490,7 +490,7 @@ export function FacilityDeepdivePage() {
       />
 
       {/* Universe toggle */}
-      <div className="mb-4 inline-flex rounded-lg border border-border bg-bg-elev-2 p-0.5">
+      <div data-tour="universe" className="mb-4 inline-flex rounded-lg border border-border bg-bg-elev-2 p-0.5">
         {([
           ['assessed', 'Assessed facilities', FAC.length],
           ['registry', 'National PHC registry', pfmoBase.length],

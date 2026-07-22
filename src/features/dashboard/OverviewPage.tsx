@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { ArrowRight, Table2, Map as MapIcon, Info, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowRight, Table2, Map as MapIcon, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, ErrorState, Card, Skeleton } from '@/components/ui';
@@ -7,9 +7,10 @@ import { KpiStrip } from '@/components/dashboard/KpiStrip';
 import { NigeriaMap, MapLegend } from '@/components/map/NigeriaMap';
 import { MapIndicatorPicker, type MapColorSelection } from '@/components/map/MapIndicatorPicker';
 import { StateProfileModal } from '@/components/map/StateProfileModal';
+import { MapMethodology } from '@/components/map/MapMethodology';
 import { stateCompositeScore } from '@/components/map/stateProfile';
-import { RingProgress } from '@/components/charts/RingProgress';
-import { CHART_GREEN } from '@/components/charts/palette';
+import { MiniDonut } from '@/components/charts/mini/echartsMinis';
+import { CHART_GREEN, CHART_GREEN_FAINT } from '@/components/charts/palette';
 import { IndicatorModal } from '@/components/dashboard/IndicatorModal';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
 import { ExecutiveReportButton } from '@/components/dashboard/ExecutiveReportButton';
@@ -23,6 +24,8 @@ import { effectiveIndicatorValue, goodnessFor, stateMeasures, heatColor } from '
 import { cleanName, decodeHtml } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import type { Indicator, BlockName, Blocks } from '@/data/types';
+
+const round1 = (v: number) => Math.round(v * 10) / 10;
 
 export function OverviewPage() {
   const ds = getDataSource();
@@ -80,10 +83,6 @@ export function OverviewPage() {
 
   // Accessible table fallback for the SVG choropleth (WCAG) + a quick ranked read.
   const mapRows = useMemo(() => Object.entries(mapValues).sort((a, b) => b[1] - a[1]), [mapValues]);
-  const mapCaption = activeInd
-    ? `${cleanName(activeInd.name)} — per-state performance (0–100). States shown in grey have no measurement for this indicator.`
-    : 'Composite PHC readiness score — each state is coloured by its average performance (0–100) across the curated tracer indicators it has real data for. States shown in grey have no data.';
-
   const highlight = useMemo<string[] | null>(() => {
     if (filter.state) return [filter.state];
     if (filter.zone) return ALL_STATES.filter((s) => ZONE_OF_STATE[s] === filter.zone);
@@ -132,9 +131,11 @@ export function OverviewPage() {
         actions={<ExecutiveReportButton />}
       />
 
-      <KpiStrip groups={kpiGroups} loading={kpiLoading} blocks={blocks} trends={trends} />
+      <div data-tour="kpi">
+        <KpiStrip groups={kpiGroups} loading={kpiLoading} blocks={blocks} trends={trends} />
+      </div>
 
-      <div className="mt-6">
+      <div className="mt-6" data-tour="map">
         <SectionBlock
           title="State map — donor footprint & programme performance"
           action={
@@ -159,12 +160,14 @@ export function OverviewPage() {
             </div>
           }
         >
-          <div>
-            {/* What the colouring means — composite vs. the selected single indicator. */}
-            <p className="mb-3 flex items-start gap-1.5 text-[12.5px] leading-relaxed text-muted">
-              <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-2" />
-              <span>{mapCaption}</span>
-            </p>
+          <div className="relative">
+            {/* What the colouring means sits behind this button rather than being
+                printed on the map surface — it opens on demand only. It floats at the
+                top-right, level with the map, so the map + legend rise to fill the row
+                instead of being pushed down by a header band of their own. */}
+            <div className="absolute right-0 -top-2 z-10">
+              <MapMethodology activeIndicator={activeInd?.name ?? null} />
+            </div>
             {/* Only the map (or table) + legend is captured for the PNG/PDF export —
                 the title, controls and caption above are intentionally left out.
                 The padding gives the exported image clean margins so the map edges
@@ -184,23 +187,39 @@ export function OverviewPage() {
                 </div>
               )}
               {showTable ? (
-                <MapDataTable
-                  rows={mapRows}
-                  label={activeInd ? cleanName(activeInd.name) : 'Composite score'}
-                  onSelect={setProfileState}
-                />
+                <>
+                  <MapDataTable
+                    rows={mapRows}
+                    label={activeInd ? cleanName(activeInd.name) : 'Composite score'}
+                    onSelect={setProfileState}
+                  />
+                  <div className="pt-4">
+                    <MapLegend />
+                  </div>
+                </>
               ) : (
-                <NigeriaMap
-                  values={mapValues}
-                  selected={filter.state}
-                  highlight={highlight}
-                  onStateClick={setProfileState}
-                  onClearSelection={clearMapSelection}
-                />
+                // Map + legend share a row: the legend is a vertical rail on the left
+                // (stacked below the map on narrow screens), so it no longer eats a
+                // full band of height beneath the map.
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="order-2 sm:order-1 sm:w-auto sm:max-w-[300px] sm:shrink-0">
+                    <MapLegend layout="column" />
+                  </div>
+                  {/* Reserve room on the right for the floating Methodology button so
+                      the map sits closer to the legend and its top-right corner never
+                      slides under the button (worst case: nav collapsed → wider card).
+                      -mt nudges the map up slightly. */}
+                  <div className="order-1 min-w-0 flex-1 sm:order-2 sm:-mt-5 sm:pr-36">
+                    <NigeriaMap
+                      values={mapValues}
+                      selected={filter.state}
+                      highlight={highlight}
+                      onStateClick={setProfileState}
+                      onClearSelection={clearMapSelection}
+                    />
+                  </div>
+                </div>
               )}
-              <div className="pt-4">
-                <MapLegend />
-              </div>
             </div>
           </div>
         </SectionBlock>
@@ -358,6 +377,12 @@ function SnapshotCard({
   const pct = eff && !eff.outOfScope && eff.pct !== undefined ? eff.pct : ind.pct;
   const goodness = goodnessFor({ inverse: ind.inverse, pct });
 
+  // The donut arc always shows "goodness" (higher = better). For a normal indicator
+  // that IS its percentage, so the centre shows it directly. For an inverse indicator
+  // (lower is better) goodness is not the reported figure, so the centre shows the
+  // real value instead rather than a number that contradicts the indicator.
+  const centerText = eff?.outOfScope ? '—' : ind.inverse ? displayVal : `${round1(pct)}%`;
+
   return (
     <Card
       hover
@@ -375,19 +400,18 @@ function SnapshotCard({
     >
       <h3 className="text-sm font-bold text-text">{block}</h3>
 
-      {/* The ring is the hero: centred both axes so it never sits in a corner. */}
+      {/* Same donut as every other part-to-whole card on the dashboard, so the
+          snapshot reads as one visual family with the indicator cards. */}
       <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
-        <div className="relative">
-          <RingProgress pct={goodness} size={124} thickness={5} color={CHART_GREEN} />
-          <span className="absolute inset-0 flex items-center justify-center text-[26px] font-extrabold text-text">
-            {Math.round(goodness)}
-          </span>
-        </div>
-        <div>
-          <div className="text-2xl font-extrabold leading-none text-text">{displayVal}</div>
-          <div className="mx-auto mt-1 max-w-[220px] text-[12px] leading-snug text-muted">
-            {cleanName(ind.name)}
-          </div>
+        <MiniDonut
+          segments={[
+            { name: 'Achieved', value: round1(goodness), color: CHART_GREEN },
+            { name: 'Remaining', value: round1(100 - goodness), color: CHART_GREEN_FAINT },
+          ]}
+          centerText={centerText}
+        />
+        <div className="mx-auto max-w-[220px] text-[12px] leading-snug text-muted">
+          {cleanName(ind.name)}
         </div>
       </div>
 

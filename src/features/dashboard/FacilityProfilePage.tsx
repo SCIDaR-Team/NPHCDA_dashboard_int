@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, MapPin, Target as TargetIcon } from 'lucide-react';
 import { PageHeader } from '@/components/dashboard/PageHeader';
@@ -10,6 +10,7 @@ import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { useFilterStore } from '@/store/filterStore';
 import { useNotificationStore } from '@/store/notificationStore';
+import { useRecentStore } from '@/store/recentStore';
 import { facilityMeasures, goodnessFor, statusFor, heatColor, looksLikePercent } from '@/data/calculations';
 import { parseFacilityKey } from '@/data/scopedEngine';
 import { ZONE_OF_STATE, STATE_DONORS } from '@/data/geo/states';
@@ -36,6 +37,19 @@ export function FacilityProfilePage() {
   const navigate = useNavigate();
   const setFilter = useFilterStore((s) => s.set);
   const toast = useNotificationStore((s) => s.toast);
+
+  // Remember this facility in "recently viewed".
+  const recordRecent = useRecentStore((s) => s.record);
+  useEffect(() => {
+    if (facility) {
+      recordRecent({
+        id: `facility:${facilityKey}`,
+        kind: 'facility',
+        label: `${facility}, ${state}`,
+        href: `/app/facility/${encodeURIComponent(facilityKey)}`,
+      });
+    }
+  }, [facility, facilityKey, state, recordRecent]);
 
   // Roster identity row (assessed universe), if this facility is in it.
   const roster: FacilityRow | undefined = useMemo(

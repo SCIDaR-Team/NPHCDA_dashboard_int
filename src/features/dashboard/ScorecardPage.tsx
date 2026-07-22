@@ -171,6 +171,7 @@ export function ScorecardPage() {
       />
 
       {/* National summary band — the country grade + block sub-scores at a glance. */}
+      <div data-tour="scorecard">
       <SectionBlock title="National grade">
         {loading || !national ? (
           <Skeleton className="h-24 rounded-card" />
@@ -213,6 +214,7 @@ export function ScorecardPage() {
           </div>
         )}
       </SectionBlock>
+      </div>
 
       <SectionBlock
         title="Performance matrix"

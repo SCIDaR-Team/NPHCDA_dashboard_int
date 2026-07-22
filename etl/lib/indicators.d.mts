@@ -23,6 +23,12 @@ export interface EngineMeasurement {
   /** Optional secondary figure (e.g. the delivery count behind a proportion), shown
    *  in the deep-dive breakdown. */
   sub?: string;
+  /** Raw counts behind a proportion, with labels naming what each counts, so the
+   *  deep dive can show the absolute figures alongside the percentage. */
+  numerator?: number;
+  denominator?: number;
+  valueLabel?: string;
+  denomLabel?: string;
 }
 
 export function buildIndicators(

@@ -4,12 +4,18 @@ import { PageHeader } from '@/components/dashboard/PageHeader';
 import { SectionBlock, ErrorState, Skeleton } from '@/components/ui';
 import { IndicatorCard } from '@/components/dashboard/IndicatorCard';
 import { IndicatorModal } from '@/components/dashboard/IndicatorModal';
+import {
+  CAUSE_HOST_INDICATOR,
+  CAUSE_INDICATOR_NAMES,
+  CAUSE_CARD_TITLE,
+} from '@/components/dashboard/indicatorViz';
 import { ExportMenu } from '@/components/dashboard/ExportMenu';
 import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { useFilterStore, pickFilter } from '@/store/filterStore';
+import { useRecentStore } from '@/store/recentStore';
 import { BLOCK_DESCRIPTIONS } from '@/data/catalogue';
-import { indicatorAnchorId } from '@/app/navigation';
+import { indicatorAnchorId, BLOCK_ROUTES } from '@/app/navigation';
 import { effectiveIndicatorValue, goodnessFor, heatColor } from '@/data/calculations';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { BlockName, Indicator } from '@/data/types';
@@ -20,8 +26,21 @@ export function BlockPage({ block }: { block: BlockName }) {
   const { data: sections } = useAsync(() => ds.getBlockSections());
   const { data: trends } = useAsync(() => ds.getTrendSeries());
   const filter = useFilterStore(pickFilter);
+  const recordRecent = useRecentStore((s) => s.record);
   const location = useLocation();
   const [modalInd, setModalInd] = useState<Indicator | null>(null);
+
+  // Open the deep-dive and remember the indicator in "recently viewed" (deep-linked
+  // to its card on this thematic page).
+  const openIndicator = (ind: Indicator) => {
+    setModalInd(ind);
+    recordRecent({
+      id: `indicator:${ind.name}`,
+      kind: 'indicator',
+      label: cleanName(ind.name),
+      href: `${BLOCK_ROUTES[block]}#${indicatorAnchorId(ind.name)}`,
+    });
+  };
   // Deep-link target (e.g. from an Overview KPI): once cards are rendered, scroll to
   // the matching indicator card and briefly ring-highlight it.
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -102,8 +121,17 @@ export function BlockPage({ block }: { block: BlockName }) {
           ))}
         </div>
       ) : (
-        sectionList.map(([title, names]) => {
-          const cards = names.map((n) => indByName[n]).filter(Boolean);
+        <div data-tour="indicators">
+        {sectionList.map(([title, names]) => {
+          // The three maternal-death cause shares collapse into ONE card hosted by
+          // PPH — they share a denominator, so separate cards repeated the same
+          // breakdown three times. The folded-in causes remain full indicators
+          // everywhere else (scorecard, league, exports, search); only the card is
+          // merged, and the deep dive splits back out per cause.
+          const cards = names
+            .map((n) => indByName[n])
+            .filter(Boolean)
+            .filter((ind) => ind.name === CAUSE_HOST_INDICATOR || !CAUSE_INDICATOR_NAMES.includes(ind.name));
           if (!cards.length) return null;
           const isGap = /gap/i.test(title);
           // This section is laid out as an even 2×2 grid (two charts per row).
@@ -120,19 +148,21 @@ export function BlockPage({ block }: { block: BlockName }) {
                     <IndicatorCard
                       key={ind.name}
                       indicator={ind}
-                      onOpen={setModalInd}
+                      onOpen={openIndicator}
                       siblings={indByName}
                       trends={trends}
                       disableWide={twoUp}
                       anchorId={id}
                       highlighted={highlightId === id}
+                      titleOverride={ind.name === CAUSE_HOST_INDICATOR ? CAUSE_CARD_TITLE : undefined}
                     />
                   );
                 })}
               </div>
             </SectionBlock>
           );
-        })
+        })}
+        </div>
       )}
 
       <IndicatorModal indicator={modalInd} onClose={() => setModalInd(null)} />

@@ -70,7 +70,7 @@ export function DataQualityPage() {
       />
 
       {/* Headline quality KPIs. */}
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-tour="dq" className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <QualityKpi
           icon={<Database size={16} />}
           label="Indicators with a live source"

@@ -31,7 +31,7 @@ export function MiniDonut({
   segments,
   centerText,
   ghost,
-  height = 184,
+  height = 200,
 }: {
   segments: DonutSegment[];
   centerText?: string;
@@ -81,7 +81,9 @@ export function MiniDonut({
               style: {
                 text: centerText,
                 fill: ghost ? GHOST : theme.text,
-                font: `800 23px ${CHART_FONT}`,
+                // Sized to be the card's headline — the centre hole carries the
+                // number, so nothing needs to repeat it beneath the chart.
+                font: `800 27px ${CHART_FONT}`,
                 textAlign: 'center',
               },
             },
@@ -94,8 +96,17 @@ export function MiniDonut({
   return (
     // Donut is the hero (no redundant caption); legend sits centred beneath it.
     <div className="flex w-full flex-col items-center gap-2">
-      <div className="w-full" style={{ maxWidth: 216 }}>
-        <EChart option={option} height={height} />
+      {/* Fixed height so the ring is the SAME diameter on every card, whatever the
+          card's column width. A pie's diameter is min(width, height); pinning the
+          height (and capping the width near it, centred) keeps min() == height, so
+          the ring stays a constant ~0.9·height across the 3-up sections AND the
+          wider 2-up "functionality & infrastructure" grid — matching the fixed-size
+          radial rings instead of inflating on wide cards. */}
+      <div
+        className="mx-auto w-full"
+        style={{ height, maxWidth: Math.round(height * 1.6) }}
+      >
+        <EChart option={option} height="100%" />
       </div>
       {legend.length > 0 && (
         <div className="flex flex-wrap justify-center gap-x-3.5 gap-y-1 text-[12px] leading-snug text-muted">
@@ -114,7 +125,7 @@ export function MiniDonut({
 /* ------------------------------------------------------------------ *
  * Gauge: single criticality-graded value with red/amber/green bands.
  * ------------------------------------------------------------------ */
-export function MiniGauge({ pct, ghost, height = 172 }: { pct?: number; ghost?: boolean; height?: number }) {
+export function MiniGauge({ pct, ghost, height = 200 }: { pct?: number; ghost?: boolean; height?: number }) {
   const theme = useChartTheme();
   const option = useMemo<EChartsOption>(() => {
     const v = ghost ? 0 : Math.min(100, Math.max(0, pct ?? 0));
@@ -158,7 +169,9 @@ export function MiniGauge({ pct, ghost, height = 172 }: { pct?: number; ghost?: 
                 offsetCenter: [0, '34%'],
                 formatter: (val: number) => `${Math.round(val * 10) / 10}%`,
                 color: theme.text,
-                fontSize: 21,
+                // Matches the donut's centre headline so gauge and donut cards
+                // present their number at the same weight.
+                fontSize: 26,
                 fontWeight: 800,
                 fontFamily: CHART_FONT,
               },
@@ -168,15 +181,22 @@ export function MiniGauge({ pct, ghost, height = 172 }: { pct?: number; ghost?: 
     };
   }, [pct, ghost, theme]);
   return (
-    // Constrained to the same width as MiniDonut so the two hero charts read as
-    // one size across cards.
-    <div className="mx-auto w-full" style={{ maxWidth: 216 }}>
-      <EChart option={option} height={height} />
+    // Same fixed sizing as MiniDonut (see the note there), so gauge, donut and
+    // radial cards all present the same-diameter ring regardless of card width.
+    <div className="mx-auto w-full">
+      <div
+        className="mx-auto w-full"
+        style={{ height, maxWidth: Math.round(height * 1.6) }}
+      >
+        <EChart option={option} height="100%" />
+      </div>
       {!ghost && (
-        <div className="-mt-2 flex items-center justify-between px-2 text-[11px] font-semibold text-muted-2">
-          <span>0%</span>
-          <span className="text-[11px] font-normal">low → high availability</span>
-          <span>100%</span>
+        // min-w-0 + truncate keep this row from setting a min-content width that
+        // would stretch the card's grid column (and clip the 100% end label).
+        <div className="-mt-2 flex min-w-0 items-center justify-between gap-2 px-2 text-[11px] font-semibold text-muted-2">
+          <span className="flex-shrink-0">0%</span>
+          <span className="min-w-0 truncate text-[11px] font-normal">low → high availability</span>
+          <span className="flex-shrink-0">100%</span>
         </div>
       )}
     </div>

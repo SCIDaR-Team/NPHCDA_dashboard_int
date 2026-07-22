@@ -14,6 +14,9 @@ import { blocks, blockSections, INDICATOR_DEFS, DEFINITIONS } from '../catalogue
 import { STATE_DONORS } from '../geo/states';
 import type { SnapshotFacts } from '../scopedEngine';
 import { useSnapshotStore } from '@/store/snapshotStore';
+import { sanitizeRecords } from '../../../etl/lib/quality.mjs';
+import { buildIndicators } from '../../../etl/lib/indicators.mjs';
+import { CAUSE_INDICATOR_NAMES } from '../maternalCauses';
 
 /**
  * Live snapshot data source.
@@ -92,6 +95,39 @@ export class SnapshotDataSource implements DataSource {
                 for (let i = 0; i < arr.length; i++) arr[i] = fixRecord(arr[i]);
               }
             }
+            // The ETL now applies these guards at source-load time, but a snapshot
+            // published before that fix still carries duplicate submissions and the
+            // one impossible cause attribution. Re-applying them here corrects an
+            // already-shipped snapshot without waiting for a data refresh; once the
+            // ETL has re-run this is a no-op.
+            for (const k of ['srh', 'sfm'] as const) {
+              if (Array.isArray(facts[k])) facts[k] = sanitizeRecords(facts[k]).records;
+            }
+            // Sanitising the facts alone would leave the snapshot INTERNALLY
+            // INCONSISTENT: `indicators` holds figures the ETL precomputed from the
+            // unsanitised rows, while every per-state/per-facility breakdown is
+            // recomputed in-browser from the facts above. The maternal-cause card
+            // would read 20.9% PPH while its own deep dive charted 19.1%.
+            //
+            // The cause shares are SFM-only (see etl/lib/indicators.mjs), so an
+            // SFM-only engine pass reproduces them exactly — verified against the
+            // shipped values before sanitising. Only those keys are overlaid; every
+            // other indicator is left as the ETL published it. Once the ETL has
+            // re-run with the same guards, this recomputes identical values.
+            if (Array.isArray(facts.sfm) && snap.indicators) {
+              const bundle = { records: facts.sfm, allRecords: facts.sfm };
+              const empty = { records: [], allRecords: [] };
+              const rebuilt = buildIndicators(empty, bundle, empty, empty, empty) as Record<
+                string,
+                { pct: number; value: string; n?: number }
+              >;
+              for (const name of CAUSE_INDICATOR_NAMES) {
+                const next = rebuilt[name];
+                if (next && snap.indicators[name]) {
+                  snap.indicators[name] = { ...snap.indicators[name], pct: next.pct, value: next.value, n: next.n };
+                }
+              }
+            }
           }
           useSnapshotStore.getState().setFacts(snap?.facts ?? null);
           useSnapshotStore.getState().setFacilities(snap?.facilities ?? []);
@@ -118,6 +154,7 @@ export class SnapshotDataSource implements DataSource {
             split4: m.split4 ?? ind.split4,
             meta: m.meta ?? ind.meta,
             info: m.info === undefined ? ind.info : m.info ?? undefined,
+            n: m.n,
           };
         }
         // No real source → intentional "Data not yet available" empty state.

@@ -60,9 +60,13 @@ export function IndicatorCard({
   disableWide = false,
   anchorId,
   highlighted = false,
+  titleOverride,
 }: {
   indicator: Indicator;
   onOpen: (i: Indicator) => void;
+  /** Heading text when the card stands for more than its own indicator (the merged
+   *  maternal-cause card), whose indicator name would otherwise name just one cause. */
+  titleOverride?: string;
   /** All indicators on the page — cross-indicator context (funnel, pipeline, cause donuts). */
   siblings?: Record<string, Indicator>;
   trends?: TrendSeries | null;
@@ -145,7 +149,7 @@ export function IndicatorCard({
       hover={clickable}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
-      aria-label={clickable ? `${cleanName(ind.name)} — open deep dive` : undefined}
+      aria-label={clickable ? `${titleOverride ?? cleanName(ind.name)} — open deep dive` : undefined}
       className={`group flex h-full scroll-mt-28 flex-col p-4 transition-shadow ${clickable ? 'cursor-pointer' : ''} ${wide ? 'sm:col-span-2' : ''} ${highlighted ? 'ring-2 ring-brand ring-offset-2 ring-offset-bg' : ''}`}
       onClick={() => clickable && onOpen(ind)}
       onKeyDown={
@@ -161,7 +165,7 @@ export function IndicatorCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-1.5">
-          <h3 className="text-[13px] font-bold leading-snug text-text">{cleanName(ind.name)}</h3>
+          <h3 className="text-[13px] font-bold leading-snug text-text">{titleOverride ?? cleanName(ind.name)}</h3>
           <span onClick={(e) => e.stopPropagation()}>
             <Tooltip
               wide

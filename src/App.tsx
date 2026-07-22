@@ -20,6 +20,7 @@ const DataQualityPage = lazy(() => import('@/features/dashboard/DataQualityPage'
 const FacilityProfilePage = lazy(() => import('@/features/dashboard/FacilityProfilePage').then((m) => ({ default: m.FacilityProfilePage })));
 const EquityPage = lazy(() => import('@/features/dashboard/EquityPage').then((m) => ({ default: m.EquityPage })));
 const ComparePage = lazy(() => import('@/features/dashboard/ComparePage').then((m) => ({ default: m.ComparePage })));
+const HelpPage = lazy(() => import('@/features/dashboard/HelpPage').then((m) => ({ default: m.HelpPage })));
 const BlockPage = lazy(() => import('@/features/dashboard/BlockPage').then((m) => ({ default: m.BlockPage })));
 const TrendPage = lazy(() => import('@/features/dashboard/TrendPage').then((m) => ({ default: m.TrendPage })));
 const FacilityDeepdivePage = lazy(() =>
@@ -70,6 +71,9 @@ export default function App() {
             <Route path="facility/:key" element={<FacilityProfilePage />} />
             <Route path="equity" element={<EquityPage />} />
             <Route path="compare" element={<ComparePage />} />
+            {/* Full help guide — reached from the top-bar “?” quick-help drawer,
+                intentionally not listed in the sidebar navigation. */}
+            <Route path="help" element={<HelpPage />} />
             <Route path="readiness" element={<BlockPage block="Facility Readiness" />} />
             <Route path="stock" element={<BlockPage block="Stock Status" />} />
             <Route path="service" element={<BlockPage block="Service Delivery" />} />

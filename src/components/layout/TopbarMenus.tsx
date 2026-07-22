@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Sun, Moon, Settings, User as UserIcon, CheckCheck, Eye, Trash2, BellOff, Inbox } from 'lucide-react';
+import { Bell, Sun, Moon, Settings, User as UserIcon, CheckCheck, Contrast, Trash2, BellOff, Inbox } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStore } from '@/store/themeStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { Drawer } from '@/components/ui/Drawer';
 import { useAuthStore } from '@/features/auth/authStore';
+import { cn } from '@/lib/cn';
+import { TOPBAR_ICON_BTN, TOPBAR_ICON_BTN_ON } from './topbarStyles';
 
 export function ThemeToggle() {
   const { theme, toggle } = useThemeStore();
@@ -14,7 +16,7 @@ export function ThemeToggle() {
       onClick={toggle}
       title="Toggle light / dark mode"
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-text-soft transition-colors hover:bg-bg-elev-2 hover:text-text"
+      className={TOPBAR_ICON_BTN}
     >
       {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
     </button>
@@ -31,11 +33,9 @@ export function ColorBlindToggle() {
       title={on ? 'Colour-blind-safe scale: on' : 'Colour-blind-safe scale: off'}
       aria-label={on ? 'Disable colour-blind-safe scale' : 'Enable colour-blind-safe scale'}
       aria-pressed={on}
-      className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-bg-elev-2 ${
-        on ? 'text-brand-bright' : 'text-text-soft hover:text-text'
-      }`}
+      className={cn(TOPBAR_ICON_BTN, on && TOPBAR_ICON_BTN_ON)}
     >
-      <Eye size={18} />
+      <Contrast size={18} />
     </button>
   );
 }
@@ -84,7 +84,7 @@ export function NotificationsMenu() {
         aria-label={count > 0 ? `Notifications, ${count} unread` : 'Notifications'}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-text-soft transition-colors hover:bg-bg-elev-2 hover:text-text"
+        className={cn(TOPBAR_ICON_BTN, 'relative')}
       >
         <Bell size={18} />
         {count > 0 && (

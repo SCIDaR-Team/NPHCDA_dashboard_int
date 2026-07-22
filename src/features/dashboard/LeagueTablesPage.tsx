@@ -91,6 +91,7 @@ export function LeagueTablesPage() {
         actions={<ExportMenu filename={`nphcda-league-${level}-${isComposite ? 'composite' : 'indicator'}`} rows={exportRows} />}
       />
 
+      <div data-tour="league">
       <SectionBlock
         title="Ranking"
         action={
@@ -231,6 +232,7 @@ export function LeagueTablesPage() {
           </div>
         )}
       </SectionBlock>
+      </div>
     </div>
   );
 }

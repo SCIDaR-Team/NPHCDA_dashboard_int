@@ -16,6 +16,12 @@ import { functionalStatusStateSplits, FUNCTIONAL_STATUS_INDICATOR, HIDE_ZERO_DIS
 import { getDataSource } from '@/data/datasource';
 import { TargetChip } from '@/components/dashboard/TargetChip';
 import { Annotations } from '@/components/dashboard/Annotations';
+import {
+  CAUSE_INDICATORS,
+  CAUSE_INDICATOR_NAMES,
+  CAUSE_HOST_INDICATOR,
+  CAUSE_CARD_TITLE,
+} from '@/components/dashboard/indicatorViz';
 import { useAsync } from '@/hooks/useAsync';
 import { cleanName, decodeHtml } from '@/lib/format';
 import type { Indicator } from '@/data/types';
@@ -23,11 +29,67 @@ import type { Indicator } from '@/data/types';
 type View = 'state' | 'facility';
 type RecvFilter = 'all' | 'received' | 'none';
 
+/** The raw counts + their labels behind a proportion, carried from the engine so the
+ *  By-facility / By-state tables can show a specific, named count column beside the % —
+ *  never a bare "Value". Absent for count / rate / categorical indicators. */
+interface RowCounts {
+  numerator?: number;
+  denominator?: number;
+  valueLabel?: string;
+  denomLabel?: string;
+}
+interface StateRow extends RowCounts {
+  label: string;
+  value: number;
+  magnitude: number;
+  display: string;
+  sub?: string;
+  n?: number;
+}
+interface FacilityRow extends RowCounts {
+  facility: string;
+  state: string;
+  lga: string;
+  value: number;
+  magnitude: number;
+  display: string;
+  sub?: string;
+  n?: number;
+}
+const pickCounts = (m: {
+  numerator?: number;
+  denominator?: number;
+  valueLabel?: string;
+  denomLabel?: string;
+}): RowCounts => ({
+  numerator: m.numerator,
+  denominator: m.denominator,
+  valueLabel: m.valueLabel,
+  denomLabel: m.denomLabel,
+});
+
 const BHCPF_FUNDS_INDICATOR = 'Total BHCPF funds received vs. expected';
 const SBA_ATTENDED_INDICATOR = 'Proportion of deliveries attended by a skilled birth attendant';
 
 /** Facility rows shown per page in the "By facility" table. */
 const FACILITY_PAGE_SIZE = 50;
+
+/* The merged maternal-cause deep dive. "All causes" is the landing view — the whole
+ * composition per scope — and "Others" is the derived remainder the three recorded
+ * causes leave behind. Neither is an ETL indicator, hence the sentinel keys. */
+const CAUSE_ALL = '__all_causes__';
+const CAUSE_OTHER = '__other_causes__';
+const CAUSE_OTHER_LABEL = 'Others';
+/** Below this many deaths a cause share is 0/50/100% noise, so the overview chart
+ *  withholds the facility rather than presenting it as a composition. */
+const CAUSE_MIN_DEATHS = 5;
+/** Segment colours for the all-causes stack. The three recorded causes take distinct
+ *  hues; the unattributed remainder is deliberately muted slate — it is an absence of
+ *  information, not a finding, and should not compete for attention. */
+const CAUSE_COLORS = [CHART_GREEN, CHART_GREEN_SOFT, secondaryColor(0)];
+const CAUSE_OTHER_COLOR = secondaryColor(4); // slate
+
+const round1 = (v: number) => Math.round(v * 10) / 10;
 
 /** Segment colours for the functional-status stacked bar / facility badges —
  *  L2 (fully functional) is the primary green, L1 the lighter green, and the
@@ -159,7 +221,32 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   const { data: facilities } = useAsync(() => ds.getFacilities());
   const { data: indicatorDefs } = useAsync(() => ds.getIndicatorDefs());
   const { data: snapMeta } = useAsync(() => ds.getSnapshotMeta());
-  const ind = indicator;
+  const { data: blocks } = useAsync(() => ds.getBlocks());
+
+  // The three maternal-death cause shares are presented as one merged card, so this
+  // deep dive carries a cause selector: picking a cause swaps the indicator every
+  // section below derives from, which re-renders the existing By-state chart and
+  // By-facility table for that cause. No separate views — same machinery, new subject.
+  const openedIsCause = !!indicator && CAUSE_INDICATOR_NAMES.includes(indicator.name);
+  const [causeSel, setCauseSel] = useState<string>(CAUSE_ALL);
+  const causeIndicators = useMemo(() => {
+    if (!openedIsCause) return {} as Record<string, Indicator>;
+    const all = Object.values(blocks ?? {}).flat() as Indicator[];
+    const m: Record<string, Indicator> = {};
+    for (const i of all) if (CAUSE_INDICATOR_NAMES.includes(i.name)) m[i.name] = i;
+    return m;
+  }, [blocks, openedIsCause]);
+  const isRealCause = CAUSE_INDICATOR_NAMES.includes(causeSel);
+  // `causeSel` starts at CAUSE_ALL for EVERY indicator, so it must never be read
+  // without this guard — otherwise the all-causes branches below hijack the chart
+  // and the facility table of every ordinary indicator.
+  const showAllCauses = openedIsCause && causeSel === CAUSE_ALL;
+  // A real cause drives everything from its own indicator. "All causes" and "Others"
+  // have no ETL indicator of their own, so they borrow the host's metadata (shared
+  // source, definition and denominator) and override only the rows they render.
+  const ind = !openedIsCause
+    ? indicator
+    : (isRealCause ? causeIndicators[causeSel] : causeIndicators[CAUSE_HOST_INDICATOR]) ?? indicator;
 
   const isFunctional = ind?.name === FUNCTIONAL_STATUS_INDICATOR;
   const isBhcpfFunds = ind?.name === BHCPF_FUNDS_INDICATOR;
@@ -172,15 +259,18 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   // Reset the view + facility filters + sort whenever a new indicator opens. Default
   // each table to the ranking the chart used to show (value/functional share desc; the
   // SBA facility table by delivery volume).
+  // Keyed on the OPENED indicator, not the derived one, so switching cause inside the
+  // deep dive keeps the reader's current view/sort instead of bouncing back to state.
   useMemo(() => {
     setView('state');
     setFacilityState('');
     setRecvFilter('all');
     setPage(1);
+    setCauseSel(CAUSE_ALL);
     setFacSort({ key: isSbaAttended ? 'deliveries' : 'value', dir: 'desc' });
     setStateSort({ key: 'magnitude', dir: 'desc' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ind?.name]);
+  }, [indicator?.name]);
 
   // Any change to what the facility table shows sends us back to the first page.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,33 +279,124 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   // Ranked descending by the real magnitude so every chart/table reads top-to-bottom
   // largest → smallest, even for count/rate indicators (colour still encodes
   // goodness via `value`/inverse, below).
-  const stateRows = useMemo(() => {
-    if (!ind) return [] as { label: string; value: number; magnitude: number; display: string; sub?: string; n?: number }[];
+  const baseStateRows = useMemo(() => {
+    if (!ind) return [] as StateRow[];
     return Object.entries(stateMeasures(ind.name))
-      .map(([label, m]) => ({ label, value: m.pct, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, sub: m.sub, n: m.n }))
+      .map(([label, m]): StateRow => ({ label, value: m.pct, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, sub: m.sub, n: m.n, ...pickCounts(m) }))
       // Only chart states that actually have a value — a measured 0 (or no activity)
       // is dropped so the bar chart isn't padded with empty zero bars.
       .filter((r) => r.magnitude > 0)
       .sort((a, b) => b.magnitude - a.magnitude);
-  }, [ind?.name, facilities]);
+    // `facilities` is unused in the body but is the snapshot-loaded signal:
+    // stateMeasures reads the snapshot store directly, so without it the rows stay
+    // empty when the deep dive renders before the snapshot resolves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ind, facilities]);
 
-  const facilityRows = useMemo(() => {
-    if (!ind) return [] as { facility: string; state: string; lga: string; value: number; magnitude: number; display: string; sub?: string; n?: number }[];
+  const baseFacilityRows = useMemo(() => {
+    if (!ind) return [] as FacilityRow[];
     const facMap = new Map((facilities ?? []).map((f) => [f.facility, f]));
     const hideZero = HIDE_ZERO_DISTRIBUTION_INDICATORS.has(ind.name);
     // Keys are state|lga|facility (see parseFacilityKey) so same-named facilities in
     // different states stay distinct; fall back to the roster only if a segment is blank.
     return Object.entries(facilityMeasures(ind.name))
-      .map(([key, m]) => {
+      .map(([key, m]): FacilityRow => {
         const { state: kState, lga: kLga, facility } = parseFacilityKey(key);
         const f = facMap.get(facility);
         const state = kState || f?.state || '—';
         const lga = kLga || f?.lga || '—';
-        return { facility, state, lga, value: m.pct, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, sub: m.sub, n: m.n };
+        return { facility, state, lga, value: m.pct, magnitude: m.num ?? magnitudeOf(m.value, m.pct), display: m.value, sub: m.sub, n: m.n, ...pickCounts(m) };
       })
       .filter((r) => !hideZero || r.magnitude > 0) // MAMII activity indicators: list only facilities with real activity
       .sort((a, b) => b.magnitude - a.magnitude);
-  }, [ind?.name, facilities]);
+  }, [ind, facilities]);
+
+  /**
+   * The full cause composition per scope, for the merged maternal-death deep dive.
+   *
+   * The three recorded causes never account for every death — nationally they cover
+   * ~55%, leaving the rest unattributed. That remainder is the largest single bucket,
+   * so it is derived here as a real fourth series rather than left as silent whitespace.
+   *
+   * Shares are clamped at zero: a scope whose recorded causes exceed its deaths would
+   * otherwise yield a negative remainder. The ETL guard removes the known cause of that
+   * (see etl/lib/quality.mjs), so this is a floor, not a routine path.
+   */
+  const causeSplits = useMemo(() => {
+    if (!openedIsCause) return [];
+    const perCause = CAUSE_INDICATOR_NAMES.map((name) =>
+      view === 'facility' ? facilityMeasures(name) : stateMeasures(name)
+    );
+    const keys = Array.from(new Set(perCause.flatMap((m) => Object.keys(m))));
+    return keys
+      .map((key) => {
+        const parts = perCause.map((m) => m[key]?.pct ?? 0);
+        const known = parts.reduce((a, p) => a + p, 0);
+        // Every cause divides the same denominator, so any one of them carries it.
+        const n = perCause.map((m) => m[key]?.n).find((v) => v != null) ?? 0;
+        return { key, parts, other: Math.max(0, 100 - known), n, overAttributed: known > 100.5 };
+      })
+      .filter((r) => r.n > 0)
+      .sort((a, b) => b.n - a.n);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openedIsCause, view, facilities]);
+
+  /** The national unattributed share, shown on the "Others" button so its weight is
+   *  visible before selecting it — it is the largest bucket, not a rounding scrap. */
+  const nationalOtherShare = useMemo(() => {
+    if (!openedIsCause) return null;
+    const known = CAUSE_INDICATOR_NAMES.reduce((a, n) => a + (causeIndicators[n]?.pct ?? 0), 0);
+    return known > 0 && known <= 100 ? `${round1(100 - known)}%` : null;
+  }, [openedIsCause, causeIndicators]);
+
+  /** Facilities below this many deaths can only produce 0/50/100% shares — noise, not
+   *  a composition. They stay in the per-cause table; only the overview chart drops them. */
+  const chartableSplits = useMemo(
+    () => (view === 'facility' ? causeSplits.filter((s) => s.n >= CAUSE_MIN_DEATHS) : causeSplits),
+    [causeSplits, view]
+  );
+  const withheldSplits = causeSplits.length - chartableSplits.length;
+
+  // "Others" is derived, not an ETL indicator, so its rows are synthesised into the
+  // exact shape the existing chart and table consume — no separate rendering path.
+  // The "Others" count is the deaths its scope leaves unattributed — a real figure,
+  // so it fills the same numerator/denominator columns as a recorded cause.
+  const otherCounts = (s: { other: number; n: number }): RowCounts => ({
+    numerator: Math.round((s.other / 100) * s.n),
+    denominator: s.n,
+    valueLabel: 'Unattributed deaths',
+    denomLabel: 'Maternal deaths',
+  });
+  const stateRows = useMemo<StateRow[]>(() => {
+    if (causeSel !== CAUSE_OTHER) return baseStateRows;
+    return causeSplits
+      .map((s): StateRow => ({ label: s.key, value: s.other, magnitude: s.other, display: `${round1(s.other)}%`, n: s.n, ...otherCounts(s) }))
+      .filter((r) => r.magnitude > 0)
+      .sort((a, b) => b.magnitude - a.magnitude);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [causeSel, baseStateRows, causeSplits]);
+
+  const facilityRows = useMemo<FacilityRow[]>(() => {
+    if (causeSel !== CAUSE_OTHER) return baseFacilityRows;
+    const facMap = new Map((facilities ?? []).map((f) => [f.facility, f]));
+    return causeSplits
+      .map((s): FacilityRow => {
+        const { state: kState, lga: kLga, facility } = parseFacilityKey(s.key);
+        const f = facMap.get(facility);
+        return {
+          facility,
+          state: kState || f?.state || '—',
+          lga: kLga || f?.lga || '—',
+          value: s.other,
+          magnitude: s.other,
+          display: `${round1(s.other)}%`,
+          n: s.n,
+          ...otherCounts(s),
+        };
+      })
+      .sort((a, b) => b.magnitude - a.magnitude);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [causeSel, baseFacilityRows, causeSplits, facilities]);
 
   // Distinct states present in the facility breakdown, for the facility-view filter.
   const facilityStateOptions = useMemo(
@@ -234,8 +415,9 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
         case 'state': return r.state;
         case 'deliveries': return deliveriesCount(r.sub); // SBA table's delivery-volume column
         case 'attended': return r.value; // SBA attended %
+        case 'count': return r.numerator ?? 0; // the named raw-count column
         case 'status': return r.value; // sort by the goodness pct behind the pill
-        default: return r.magnitude; // 'value'
+        default: return r.magnitude; // 'value' / 'proportion'
       }
     });
   }, [facilityRows, facilityState, isBhcpfFunds, recvFilter, facSort]);
@@ -253,6 +435,15 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
   const isGap = !ind || !(ind.pct > 0) || stateRows.length === 0;
   const note = ind ? coverageNote(ind) : '';
 
+  // When the rows carry raw counts behind the proportion, the facility table gains a
+  // named count column (labelled by what it counts) and the percentage column is
+  // retitled "Proportion". Count / rate / categorical indicators — and the SBA table,
+  // which already splits into its own deliveries + attended columns — keep their
+  // existing single "Value" column.
+  const facCounts = facilityRows.find((r) => r.numerator != null);
+  const showFacCounts = !!facCounts && !isFunctional && !isSbaAttended;
+  const countLabel = facCounts?.valueLabel ?? 'Value';
+
   // The By-state bars, reordered by the user's chosen key/direction (value or state
   // name). The y-axis is inverse, so array position 0 renders at the top.
   const stateChartRows = useMemo(
@@ -262,6 +453,30 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
 
   const chart = useMemo<{ option: EChartsOption; height: number } | null>(() => {
     if (!ind || isGap) return null;
+
+    // All-causes overview: one 100% stacked bar per scope, so the whole composition
+    // reads at once and scopes stay comparable regardless of how many deaths each
+    // recorded. Ordered by death count, so the heaviest burden leads.
+    if (showAllCauses) {
+      if (!chartableSplits.length) return null;
+      const labels = chartableSplits.map((s) =>
+        view === 'facility' ? parseFacilityKey(s.key).facility : s.key
+      );
+      const series = [
+        ...Object.keys(CAUSE_INDICATORS).map((label, i) => ({
+          name: label,
+          color: CAUSE_COLORS[i],
+          data: chartableSplits.map((s) => round1(s.parts[i])),
+        })),
+        {
+          name: CAUSE_OTHER_LABEL,
+          color: CAUSE_OTHER_COLOR,
+          data: chartableSplits.map((s) => round1(s.other)),
+        },
+      ];
+      const option = horizontalBarOption({ theme, categories: labels, max: 100, stacked: true, legend: true, series });
+      return { option, height: horizontalBarHeight(labels, { legend: true }) };
+    }
 
     // Facility functional status: a STACKED bar per state so a state with a mix of
     // L2/L1/partial/non-functional facilities shows the full composition, not just
@@ -325,7 +540,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
       },
     };
     return { option, height: horizontalBarHeight(labels) };
-  }, [ind, isGap, isFunctional, stateChartRows, theme]);
+  }, [ind, isGap, isFunctional, stateChartRows, theme, showAllCauses, chartableSplits, view]);
 
   if (!ind) return null;
 
@@ -351,9 +566,64 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
     <Modal
       open={!!ind}
       onClose={onClose}
-      title={cleanName(ind.name)}
+      title={openedIsCause ? CAUSE_CARD_TITLE : cleanName(ind.name)}
       size="max-w-4xl"
     >
+      {openedIsCause && (
+        <div className="mb-4">
+          <div className="mb-1.5 text-[12px] font-semibold text-text-soft">Cause of death</div>
+          <div
+            role="group"
+            aria-label="Select cause of death"
+            className="inline-flex flex-wrap gap-1 rounded-lg border border-border bg-bg-elev-2/50 p-1"
+          >
+            {[
+              { key: CAUSE_ALL, label: 'All causes', value: null as string | null },
+              ...Object.entries(CAUSE_INDICATORS).map(([label, name]) => ({
+                key: name,
+                label,
+                value: causeIndicators[name] ? decodeHtml(causeIndicators[name].value) : null,
+              })),
+              { key: CAUSE_OTHER, label: CAUSE_OTHER_LABEL, value: nationalOtherShare },
+            ].map(({ key, label, value }) => {
+              const active = key === causeSel;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setCauseSel(key)}
+                  aria-pressed={active}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
+                    active ? 'bg-brand text-white' : 'text-text-soft hover:bg-bg-elev-2 hover:text-text'
+                  )}
+                >
+                  {label}
+                  {value && (
+                    <span className={cn('tabular-nums', active ? 'text-white/80' : 'text-muted')}>{value}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
+            {causeSel === CAUSE_ALL
+              ? 'Every recorded cause per scope, as a share of that scope’s maternal deaths. '
+              : 'Every breakdown below shows the selected cause. '}
+            All causes share one denominator — total recorded maternal deaths
+            {ind.n != null ? ` (n = ${ind.n.toLocaleString('en-US')})` : ''}. “{CAUSE_OTHER_LABEL}” is the
+            remainder left unattributed by the three recorded causes.
+            {causeSel === CAUSE_ALL && withheldSplits > 0 && (
+              <>
+                {' '}
+                {withheldSplits} {withheldSplits === 1 ? 'facility is' : 'facilities are'} withheld from this
+                chart for recording fewer than {CAUSE_MIN_DEATHS} deaths, where a share cannot be meaningful;
+                they remain in the per-cause table.
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
       {note && (
         <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           {note}
@@ -432,13 +702,16 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
             </div>
           )}
 
-          {view === 'state' && (
+          {/* The all-causes overview is a composition chart in BOTH views — the
+              per-cause table's columns carry a single cause's value, which would
+              contradict the chart above it. Selecting a cause restores the table. */}
+          {(view === 'state' || showAllCauses) && (
             <div className="space-y-3">
               {/* Bar ordering control (left) + download-as-image (right). The
-                  functional-status chart is a fixed composition ranking, so its
-                  sort control isn't offered — but it's still downloadable. */}
+                  functional-status and all-causes charts are fixed composition
+                  rankings, so their sort control isn't offered — but both download. */}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                {!isFunctional ? (
+                {!isFunctional && !showAllCauses ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[12px] font-semibold text-muted">Sort states by</span>
                     <div className="inline-flex rounded-lg border border-border bg-bg-elev-2 p-0.5">
@@ -481,7 +754,11 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                     the downloaded chart carries its indicator name + source. */}
                 {chartCapturing && (
                   <div className="mb-3 border-b border-border-soft pb-3 text-center">
-                    <h3 className="text-sm font-extrabold tracking-tight text-text">{cleanName(ind.name)}</h3>
+                    <h3 className="text-sm font-extrabold tracking-tight text-text">
+                      {showAllCauses
+                        ? `${CAUSE_CARD_TITLE} — by ${view === 'facility' ? 'facility' : 'state'}`
+                        : cleanName(ind.name)}
+                    </h3>
                     <p className="mt-0.5 text-[11px] text-muted">
                       {decodeHtml(ind.src)}
                       {snapMeta?.generatedAt ? ` · Data as of ${formatDate(snapMeta.generatedAt)}` : ''}
@@ -493,7 +770,7 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
             </div>
           )}
 
-          {view === 'facility' && (
+          {view === 'facility' && !showAllCauses && (
             <>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <label className="text-xs font-semibold text-text-soft">Filter by state</label>
@@ -527,15 +804,21 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                   <thead className="sticky top-0 bg-bg-elev-2 text-left text-xs text-muted">
                     <tr>
                       <th className="px-3 py-2 font-semibold">#</th>
-                      <SortTh label="Facility" k="facility" sort={facSort} onSort={onFacSort} />
-                      <SortTh label="LGA" k="lga" sort={facSort} onSort={onFacSort} />
                       <SortTh label="State" k="state" sort={facSort} onSort={onFacSort} />
+                      <SortTh label="LGA" k="lga" sort={facSort} onSort={onFacSort} />
+                      <SortTh label="Facility" k="facility" sort={facSort} onSort={onFacSort} />
                       {isFunctional ? (
                         <SortTh label="Status" k="status" sort={facSort} onSort={onFacSort} />
                       ) : isSbaAttended ? (
                         <>
                           <SortTh label="Deliveries" k="deliveries" sort={facSort} onSort={onFacSort} align="right" />
                           <SortTh label="Attended by SBA" k="attended" sort={facSort} onSort={onFacSort} align="right" />
+                          {showStatus && <SortTh label="Status" k="status" sort={facSort} onSort={onFacSort} />}
+                        </>
+                      ) : showFacCounts ? (
+                        <>
+                          <SortTh label={countLabel} k="count" sort={facSort} onSort={onFacSort} align="right" />
+                          <SortTh label="Proportion" k="value" sort={facSort} onSort={onFacSort} align="right" />
                           {showStatus && <SortTh label="Status" k="status" sort={facSort} onSort={onFacSort} />}
                         </>
                       ) : (
@@ -550,9 +833,9 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                     {pagedFacilityRows.map((d, i) => (
                       <tr key={pageStart + i} className="border-t border-border-soft">
                         <td className="px-3 py-2 text-muted">{pageStart + i + 1}</td>
-                        <td className="px-3 py-2 font-medium text-text">{d.facility}</td>
-                        <td className="px-3 py-2 text-muted">{d.lga}</td>
                         <td className="px-3 py-2 text-muted">{d.state}</td>
+                        <td className="px-3 py-2 text-muted">{d.lga}</td>
+                        <td className="px-3 py-2 font-medium text-text">{d.facility}</td>
                         {isFunctional ? (
                           <td className="px-3 py-2">
                             <span
@@ -573,6 +856,30 @@ export function IndicatorModal({ indicator, onClose }: { indicator: Indicator | 
                             <td
                               className="px-3 py-2 text-right font-semibold"
                               style={{ color: heatColor(d.value) }}
+                            >
+                              {d.display}
+                            </td>
+                            {showStatus && (
+                              <td className="px-3 py-2">
+                                <StatusPill status={statusFor(d.value, ind.inverse)} />
+                              </td>
+                            )}
+                          </>
+                        ) : showFacCounts ? (
+                          <>
+                            {/* The named raw-count column: the numerator, with its
+                                denominator as muted context (e.g. "143 / 748"). */}
+                            <td className="px-3 py-2 text-right tabular-nums text-text-soft">
+                              {d.numerator != null ? d.numerator.toLocaleString('en-US') : '—'}
+                              {d.denominator != null && (
+                                <span className="ml-1 text-[12px] font-normal text-muted">
+                                  / {d.denominator.toLocaleString('en-US')}
+                                </span>
+                              )}
+                            </td>
+                            <td
+                              className="px-3 py-2 text-right font-semibold"
+                              style={{ color: ind.inverse ? heatColor(100 - d.value) : heatColor(d.value) }}
                             >
                               {d.display}
                             </td>

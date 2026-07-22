@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
 import { useThemeStore } from '@/store/themeStore';
+import { cn } from '@/lib/cn';
 import { cssVar } from './chartTheme';
 import { CHART_FONT } from './chartBase';
 
@@ -68,7 +69,11 @@ export function EChart({ option, height = 320, className, onEvents }: EChartProp
   }, []);
 
   return (
-    <div ref={wrapRef} style={{ width: '100%', height }} className={className}>
+    // overflow-hidden clips the canvas to its box. ECharts sizes the canvas in
+    // explicit pixels, so while a layout animates (the sidebar collapsing) the canvas
+    // can briefly be wider than the container it now sits in; without clipping it
+    // spills across the neighbouring grid column instead of staying in its card.
+    <div ref={wrapRef} style={{ width: '100%', height }} className={cn('min-w-0 overflow-hidden', className)}>
       <ReactECharts
         ref={chartRef}
         key={theme}

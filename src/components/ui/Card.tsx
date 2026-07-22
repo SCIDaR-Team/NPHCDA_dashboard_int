@@ -6,7 +6,11 @@ export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & 
     <div
       ref={ref}
       className={cn(
-        'rounded-card border border-border bg-bg-elev shadow-card',
+        // min-w-0 is load-bearing: as a grid/flex item a Card defaults to
+        // min-width:auto, so a child that momentarily reports a wider intrinsic size
+        // (an ECharts canvas still carrying the previous layout's pixel width while
+        // the sidebar animates) would refuse to shrink and paint over the next column.
+        'min-w-0 rounded-card border border-border bg-bg-elev shadow-card',
         hover && 'transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-card-hover',
         className
       )}

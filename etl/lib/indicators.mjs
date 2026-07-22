@@ -17,6 +17,17 @@ import { ratioPct, clampPct, round, MONTH_LABELS, completeMonthSet } from './uti
 const sum = (arr, f) => arr.reduce((a, r) => a + f(r), 0);
 const pctStr = (p) => `${round(p)}%`;
 
+// Attach the raw counts behind a proportion, each labelled by what it counts, so the
+// deep-dive's By-facility / By-state tables can show the absolute figures next to the
+// percentage instead of a bare, context-free "Value" column. Only meaningful for ratio
+// indicators; count / rate / categorical indicators leave these unset.
+const counts = (numerator, denominator, valueLabel, denomLabel) => ({
+  numerator,
+  denominator,
+  valueLabel,
+  denomLabel,
+});
+
 /** Format a naira amount, scaling the unit so small (facility-level) amounts stay
  *  precise — millions rounded to 0.1 lose amounts under ~₦50k (they'd read "₦0m"),
  *  which then look like "no funds". k/m/bn keeps every real amount visible. */
@@ -217,6 +228,7 @@ function addPfmoIndicators(pfmo, put) {
   put('Proportion of children &lt;1 year who received Penta 3', pentaPct, pentaPct == null ? null : `${round(pentaPct)}% (Penta3/Penta1)`, {
     n: penta3,
     info: null,
+    ...counts(penta3, penta1, 'Penta3 doses', 'Penta1 doses'),
     meta:
       `PFMO (national): ${penta3.toLocaleString('en-US')} Penta3 ÷ ${penta1.toLocaleString('en-US')} Penta1 doses = ${round(pentaPct ?? 0)}% completion. ` +
       `The indicator's true denominator is the eligible-child target population, which PFMO doesn't collect, so Penta3/Penta1 completion is shown as the closest proxy (a coverage-quality/dropout signal). Raw dose counts preserved above.`,
@@ -290,6 +302,7 @@ export function buildIndicators(srh, sfm, sheet, mamii = { records: [] }, pfmo =
   put('% of women with a live birth who attended ANC 1', anc1pct, anc1pct == null ? null : pctStr(anc1pct), {
     n: s.length + sfm.records.length,
     meta: 'Pools SRH (live-birth buckets, ≥1 visit ÷ live births) with SFM (direct ANC1 visit count ÷ facility deliveries).',
+    ...counts(anc1num, ancDen, 'ANC1 attendees', 'Live births + deliveries'),
   });
 
   // ANC4 (≥4 visits): the live-birth buckets can't isolate exactly-4 visits (they're
@@ -299,13 +312,17 @@ export function buildIndicators(srh, sfm, sheet, mamii = { records: [] }, pfmo =
   put('% of women with a live birth who attended ANC 4', anc4pct, anc4pct == null ? null : pctStr(anc4pct), {
     n: s.length + sfm.records.length,
     meta: 'ANC4 (≥4 visits) approximated as ≥5 on the SRH side — the survey’s 1–4 visit bucket can’t isolate exactly-4 visits. Pooled with SFM’s direct ANC4 visit count ÷ facility deliveries; both sources independently agree closely.',
+    ...counts(anc4num, ancDen, 'ANC4 attendees', 'Live births + deliveries'),
   });
 
   // Modern contraceptive use.
   const fpTot = sum(s, (r) => r.fpTotal);
   const fpMod = sum(s, (r) => r.fpModernUnits);
   const fpPct = ratioPct(fpMod, fpTot);
-  put('% of family planning clients using modern contraceptives', fpPct, fpPct == null ? null : pctStr(fpPct), { n: s.filter((r) => r.fpTotal > 0).length });
+  put('% of family planning clients using modern contraceptives', fpPct, fpPct == null ? null : pctStr(fpPct), {
+    n: s.filter((r) => r.fpTotal > 0).length,
+    ...counts(fpMod, fpTot, 'Modern-method clients', 'FP clients'),
+  });
 
   // Facility deliveries (latest reporting month, national). Per the indicator
   // workbook, pool SRH `deliveries_total` with SFM `anc.tot_facility_deliveries` —
@@ -328,13 +345,15 @@ export function buildIndicators(srh, sfm, sheet, mamii = { records: [] }, pfmo =
   // an attended-delivery count — verified via the form's question labels, so there
   // is no valid SRH numerator. SFM has a real per-facility field for this.
   const sbaDelivDen = sum(sfm.records, (r) => r.deliveries);
-  const sbaAttendedPct = ratioPct(sum(sfm.records, (r) => r.sbaAttendedDeliveries), sbaDelivDen);
+  const sbaAttended = sum(sfm.records, (r) => r.sbaAttendedDeliveries);
+  const sbaAttendedPct = ratioPct(sbaAttended, sbaDelivDen);
   // `sub` carries the delivery COUNT (the denominator) so the deep-dive can show the
   // volume behind the proportion per state / per facility, without cluttering the
   // headline % on the cards.
   put('Proportion of deliveries attended by a skilled birth attendant', sbaAttendedPct, sbaAttendedPct == null ? null : pctStr(sbaAttendedPct), {
     n: sfm.records.length,
     sub: sbaAttendedPct == null ? undefined : `${fmtCount(sbaDelivDen)} deliveries`,
+    ...counts(sbaAttended, sbaDelivDen, 'Attended deliveries', 'Total deliveries'),
     meta: 'SFM ODK only: deliveries attended by a skilled birth attendant ÷ total facility deliveries. SRH ODK has no equivalent field — its "SBA" questions are staffing counts, not attended-delivery counts. Near-ceiling: in the latest submission per facility, 374 of 382 facilities report the two counts as identical.',
   });
 
@@ -357,12 +376,21 @@ export function buildIndicators(srh, sfm, sheet, mamii = { records: [] }, pfmo =
     `SRH ODK records only ${srhDeaths} maternal deaths, far too few to report a cause proportion, so it is not used here. ` +
     `Denominator = total maternal deaths. Cause shares are comparable across panels even though the maternal-mortality ` +
     `level (#58) is not — SFM's facility rate runs ~8× SRH's, a definitional/scope gap.`;
-  const pph = ratioPct(sum(allSfm, (r) => r.matPPH), sfmDeaths);
-  put('Proportion of maternal deaths resulting from PPH', pph, pph == null ? null : pctStr(pph), { n: sfmDeaths, meta: causeMeta });
-  const htn = ratioPct(sum(allSfm, (r) => r.matHTN), sfmDeaths);
-  put('Proportion of maternal deaths resulting from pre-eclampsia/eclampsia', htn, htn == null ? null : pctStr(htn), { n: sfmDeaths, meta: causeMeta });
-  const sepsis = ratioPct(sum(allSfm, (r) => r.matSepsis), sfmDeaths);
-  put('Proportion of maternal deaths resulting from sepsis', sepsis, sepsis == null ? null : pctStr(sepsis), { n: sfmDeaths, meta: causeMeta });
+  const pphDeaths = sum(allSfm, (r) => r.matPPH);
+  const pph = ratioPct(pphDeaths, sfmDeaths);
+  put('Proportion of maternal deaths resulting from PPH', pph, pph == null ? null : pctStr(pph), {
+    n: sfmDeaths, meta: causeMeta, ...counts(pphDeaths, sfmDeaths, 'PPH deaths', 'Maternal deaths'),
+  });
+  const htnDeaths = sum(allSfm, (r) => r.matHTN);
+  const htn = ratioPct(htnDeaths, sfmDeaths);
+  put('Proportion of maternal deaths resulting from pre-eclampsia/eclampsia', htn, htn == null ? null : pctStr(htn), {
+    n: sfmDeaths, meta: causeMeta, ...counts(htnDeaths, sfmDeaths, 'Pre-eclampsia deaths', 'Maternal deaths'),
+  });
+  const sepsisDeaths = sum(allSfm, (r) => r.matSepsis);
+  const sepsis = ratioPct(sepsisDeaths, sfmDeaths);
+  put('Proportion of maternal deaths resulting from sepsis', sepsis, sepsis == null ? null : pctStr(sepsis), {
+    n: sfmDeaths, meta: causeMeta, ...counts(sepsisDeaths, sfmDeaths, 'Sepsis deaths', 'Maternal deaths'),
+  });
 
   // #58 MMR — wired EXACTLY as the workbook maps them: the denominator is
   // `deliveries_total` (facility deliveries), not population live births. SRH-only
@@ -495,31 +523,37 @@ export function buildIndicators(srh, sfm, sheet, mamii = { records: [] }, pfmo =
   // PPH bundle availability (SRH comm_status + SFM always_in_stock, both harmonised
   // to a strict "available" — see the source adapters).
   const pphFacs = [...s, ...sfm.records];
-  const pphAvail = ratioPct(pphFacs.filter((r) => r.pphBundleAvailable).length, pphFacs.length);
+  const pphAvailFacs = pphFacs.filter((r) => r.pphBundleAvailable).length;
+  const pphAvail = ratioPct(pphAvailFacs, pphFacs.length);
   put('Proportion of facilities with the PPH bundle available*', pphAvail, pphAvail == null ? null : pctStr(pphAvail), {
     n: pphFacs.length,
     info: null, // show the real value rather than the illustrative composite breakdown
     meta: 'All 5 PPH-bundle commodities available: SRH comm_status = "available" or SFM = "always_in_stock" (strict — "sometimes in stock" excluded). Pools SRH + SFM facilities.',
+    ...counts(pphAvailFacs, pphFacs.length, 'Facilities with bundle', 'Facilities assessed'),
   });
 
   // Tracer-6 PARTIAL (#17) — SRH only measures 3 of the 6 (Oxytocin, HIV RTKs, ≥3 modern
   // contraceptives). MMS is SFM-only (different panel) and ACT/Pentavalent aren't collected,
   // so this is reported as "partial (3 of 6)". `info: null` renders a plain value card
   // instead of the 6-item composite breakdown (which we can't fully populate).
-  const tracer = ratioPct(s.filter((r) => r.tracerPartialAvailable).length, s.length);
+  const tracerFacs = s.filter((r) => r.tracerPartialAvailable).length;
+  const tracer = ratioPct(tracerFacs, s.length);
   put('Proportion of PHCs with all six tracer commodities available*', tracer, tracer == null ? null : `${round(tracer)}% · 3 of 6`, {
     n: s.length,
     info: null,
     meta: 'PARTIAL (3 of 6): % of SRH PHCs with Oxytocin + HIV test kits + ≥3 modern contraceptives available. MMS is collected only in SFM (different facility panel); ACT & Pentavalent are not collected in any source.',
+    ...counts(tracerFacs, s.length, 'PHCs with 3 of 6', 'PHCs assessed'),
   });
 
   // Cold chain (#26) — SFM `drugs_supply.equipment.cce` = `yes` (strict; excludes
   // yes_no_therm / yes_faulty). Only facilities that answered the question count.
   const cceFacs = sfm.records.filter((r) => r.cceAssessed);
-  const cce = ratioPct(cceFacs.filter((r) => r.cceFunctional).length, cceFacs.length);
+  const cceFunc = cceFacs.filter((r) => r.cceFunctional).length;
+  const cce = ratioPct(cceFunc, cceFacs.length);
   put('Proportion of wards / main PHCs with functional cold-chain equipment (SDD/CCE)', cce, cce == null ? null : pctStr(cce), {
     n: cceFacs.length,
     meta: 'Functional = SFM cold-chain equipment reported `yes` (working, with thermometer). "Present but no thermometer" and "faulty" are excluded, per cold-chain integrity standards.',
+    ...counts(cceFunc, cceFacs.length, 'Functional CCE', 'PHCs assessed'),
   });
 
   // Maternal health equipment PARTIAL (#27) — covers 4 of the 5 workbook items,
@@ -532,10 +566,12 @@ export function buildIndicators(srh, sfm, sheet, mamii = { records: [] }, pfmo =
     ...sfm.records.map((r) => r.neoAmbuFunctional && r.oximeterFunctional),
     ...sheet.records.map((r) => r.deliveryBedFunctional && r.mvaFunctional),
   ];
-  const equipPct = ratioPct(equipFacs.filter(Boolean).length, equipFacs.length);
+  const equipOk = equipFacs.filter(Boolean).length;
+  const equipPct = ratioPct(equipOk, equipFacs.length);
   put('Proportion of visited PHCs with functional maternal health equipment*', equipPct, equipPct == null ? null : `${round(equipPct)}% · 4 of 5`, {
     n: equipFacs.length,
     info: null,
+    ...counts(equipOk, equipFacs.length, 'PHCs with equipment', 'PHCs assessed'),
     meta: 'PARTIAL (4 of 5): SFM (neonatal Ambu bag + pulse oximeter, both `always_in_stock`) pooled with the SRH Sheet (delivery bed + MVA kit, both `available_and_functional`) — different facility panels, each scored against the item(s) it collects. Episiotomy/suturing set has no source (PFMO-only; PFMO not connected).',
   });
 
@@ -549,9 +585,11 @@ export function buildIndicators(srh, sfm, sheet, mamii = { records: [] }, pfmo =
     ...mam.filter((r) => r.sbaAssessed).map((r) => r.minFourSbas),
     ...sheet.records.filter((r) => r.sbaAssessed && !mamiiStates.has(r.state)).map((r) => r.minFourSbas),
   ];
-  const sbaPct = ratioPct(sbaFacs.filter(Boolean).length, sbaFacs.length);
+  const sbaOk = sbaFacs.filter(Boolean).length;
+  const sbaPct = ratioPct(sbaOk, sbaFacs.length);
   put('Proportion of facilities with a minimum of 4 SBAs', sbaPct, sbaPct == null ? null : pctStr(sbaPct), {
     n: sbaFacs.length,
+    ...counts(sbaOk, sbaFacs.length, 'Facilities with ≥4 SBAs', 'Facilities assessed'),
     meta: mam.length
       ? `MAMII "Total number of SBAs" ≥ 4 (33 states) pooled with the SRH Sheet SBA-availability count for the states MAMII does not cover, per the indicator workbook (MAMII + SRH Sheet). MAMII takes precedence per state so no facility is double-counted.`
       : undefined,

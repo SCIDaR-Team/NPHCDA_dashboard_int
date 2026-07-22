@@ -52,6 +52,9 @@ export interface Indicator {
   coverage?: Coverage;
   /** Key into the DEFINITIONS composite breakdown table. */
   info?: string;
+  /** Denominator behind the measurement, when the ETL reports one (e.g. the total
+   *  maternal deaths the cause shares divide by). Absent for catalogue-only rows. */
+  n?: number;
 }
 
 export type Blocks = Record<string, Indicator[]>;

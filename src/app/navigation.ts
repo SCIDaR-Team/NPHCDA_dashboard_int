@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Scale,
   Columns3,
+  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockName } from '@/data/types';
@@ -115,6 +116,48 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'The seven linked source dashboards feeding this platform.',
   },
 ];
+
+/**
+ * A collapsible sidebar section. Its members stay in `NAV_ITEMS` (routing, search
+ * and the home grid are all driven from that flat list) — grouping is purely a
+ * navigation-tree concern.
+ */
+export interface NavGroup {
+  label: string;
+  icon: LucideIcon;
+  description: string;
+  items: NavItem[];
+}
+
+/** Routes folded into the "Other Analysis" group, in the order they appear there. */
+const OTHER_ANALYSIS_ROUTES = [
+  '/app/scorecard',
+  '/app/league',
+  '/app/data-quality',
+  '/app/equity',
+  '/app/compare',
+];
+
+export const OTHER_ANALYSIS: NavGroup = {
+  label: 'Other Analysis',
+  icon: Layers,
+  description: 'Scorecard, league tables, data quality, equity and scope comparison.',
+  items: OTHER_ANALYSIS_ROUTES.map((to) => NAV_ITEMS.find((n) => n.to === to)!),
+};
+
+export const isNavGroup = (n: NavItem | NavGroup): n is NavGroup => 'items' in n;
+
+/**
+ * Sidebar order: the ungrouped pages as listed above, with "Other Analysis"
+ * inserted immediately after Source Dashboards.
+ */
+export const SIDEBAR_NAV: (NavItem | NavGroup)[] = (() => {
+  const top = NAV_ITEMS.filter((n) => !OTHER_ANALYSIS_ROUTES.includes(n.to));
+  const at = top.findIndex((n) => n.to === '/app/sources');
+  const tree: (NavItem | NavGroup)[] = [...top];
+  tree.splice(at < 0 ? top.length : at + 1, 0, OTHER_ANALYSIS);
+  return tree;
+})();
 
 export const BLOCK_ROUTES: Record<BlockName, string> = {
   'Facility Readiness': '/app/readiness',

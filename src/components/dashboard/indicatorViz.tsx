@@ -1,4 +1,3 @@
-import { RingProgress } from '@/components/charts/RingProgress';
 import {
   MiniBullet,
   MiniCompositionBar,
@@ -33,7 +32,7 @@ import type { Indicator, Split4, TrendSeries } from '@/data/types';
  *   counts            → KPI + ranked top-states bars (never a progress bar)
  *   binary shares     → donut
  *   composite "ALL items" measures → bullet with Poor/Fair/Good bands
- *   saturation %      → radial progress
+ *   coverage / saturation % → donut (binary share)
  *   compositions      → 100% stacked bar
  *   trends            → area chart (real ETL series)
  *   cascade           → funnel (ANC1 → ANC4)
@@ -49,9 +48,9 @@ export type VizKind =
   | 'stateBarsCount' // count + per-state ranked bars (distinct colour per state)
   | 'stateBarsNaira' // ₦ amounts by state
   | 'bullet'
-  | 'radial'
   | 'donutBinary'
   | 'donutCause'
+  | 'causeBars'
   | 'donutFp'
   | 'barSplit' // 4-way functional-status composition as ranked bars (L2/L1/partial/non-func)
   | 'gauge'
@@ -85,11 +84,15 @@ export interface VizSpec {
 
 const NEUTRAL_BAR = CHART_GREEN; // counts are a single category → one brand green
 
-const CAUSE_INDICATORS: Record<string, string> = {
-  PPH: 'Proportion of maternal deaths resulting from PPH',
-  'Pre-eclampsia/eclampsia': 'Proportion of maternal deaths resulting from pre-eclampsia/eclampsia',
-  Sepsis: 'Proportion of maternal deaths resulting from sepsis',
-};
+// Canonical definitions live in the data layer (src/data/maternalCauses.ts) so the
+// snapshot loader can share them; re-exported here for existing viz consumers.
+import { CAUSE_INDICATORS } from '@/data/maternalCauses';
+export {
+  CAUSE_INDICATORS,
+  CAUSE_HOST_INDICATOR,
+  CAUSE_INDICATOR_NAMES,
+  CAUSE_CARD_TITLE,
+} from '@/data/maternalCauses';
 
 const VACCINE_BANDS = ['Sufficient (50–80%)', 'Reorder (25–50%)', 'Understocked (<25%)', 'Stocked out'];
 const BAND_NOTE = 'This card measures the highlighted band of the vaccine stock distribution.';
@@ -104,7 +107,10 @@ export const VIZ_MAP: Record<string, VizSpec> = {
   },
   'Proportion of visited PHCs with functional maternal health equipment*': { kind: 'gauge' },
   'Number of SBAs recruited': { kind: 'stateBarsCount' },
-  'Proportion of SBAs deployed per state': { kind: 'radial' },
+  'Proportion of SBAs deployed per state': {
+    kind: 'donutBinary',
+    donutLabels: ['Deployed', 'Not deployed'],
+  },
   'Number of CBHWs trained': {
     kind: 'pipeline',
     poolIndicator: 'Proportion of CBHWs recruited',
@@ -175,7 +181,10 @@ export const VIZ_MAP: Record<string, VizSpec> = {
 
   /* ---------------- Service Delivery ---------------- */
   'Number of deliveries in facilities': { kind: 'kpiStat', trendKey: 'Facility deliveries (count)' },
-  'Proportion of deliveries attended by a skilled birth attendant': { kind: 'radial' },
+  'Proportion of deliveries attended by a skilled birth attendant': {
+    kind: 'donutBinary',
+    donutLabels: ['SBA-attended', 'Not attended'],
+  },
   '% of women with a live birth who attended ANC 1': {
     kind: 'donutBinary',
     donutLabels: ['Attended ANC 1', 'Did not attend'],
@@ -189,10 +198,17 @@ export const VIZ_MAP: Record<string, VizSpec> = {
   },
   'Proportion of children &lt;1 year who received Measles 1': { kind: 'bullet' },
   'Number of zero-dose children (burden)': { kind: 'stateBarsCount' },
-  'Proportion of girls aged 9 who received the HPV vaccine dose': { kind: 'radial' },
+  'Proportion of girls aged 9 who received the HPV vaccine dose': {
+    kind: 'donutBinary',
+    donutLabels: ['Received HPV', 'Not received'],
+  },
   'Maternal Mortality Ratio - BHCPF vs. non-BHCPF facilities': { kind: 'rateBar' },
   'Under-5 Mortality Rate - BHCPF vs. non-BHCPF facilities': { kind: 'rateBar' },
-  'Proportion of maternal deaths resulting from PPH': { kind: 'donutCause', cause: 'PPH' },
+  // The three cause shares are ONE card: they share a denominator (total maternal
+  // deaths), so three separate cards rendered the same breakdown three times. PPH
+  // hosts the merged card; BlockPage skips the other two. Per-cause state/facility
+  // detail moved to the deep dive's cause selector.
+  'Proportion of maternal deaths resulting from PPH': { kind: 'causeBars' },
   'Proportion of maternal deaths resulting from pre-eclampsia/eclampsia': {
     kind: 'donutCause',
     cause: 'Pre-eclampsia/eclampsia',
@@ -207,15 +223,12 @@ const WIDE_KINDS = new Set<VizKind>(['composition', 'barSplit', 'stateBarsCount'
 const EMBEDS_VALUE = new Set<VizKind>([
   'donutBinary',
   'donutCause',
+  'causeBars',
   'donutFp',
   'gauge',
-  'radial',
   'kpiStat',
   'rateBar',
 ]);
-
-/** Radial (saturation %) rings use the single brand green, not the heat scale. */
-const RADIAL_COLOR = CHART_GREEN;
 
 /** Rate-bar context (scale + published benchmark) for the two mortality ratios. */
 const RATE_CFG: Record<
@@ -448,19 +461,6 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
       return <MiniBullet pct={ind.pct} inverse={ind.inverse} />;
     }
 
-    case 'radial':
-      return (
-        <div className="flex w-full flex-col items-center justify-center text-center">
-          <div className="relative">
-            <RingProgress pct={ind.inverse ? 100 - ind.pct : ind.pct} size={176} thickness={6} color={RADIAL_COLOR} />
-            {/* Match the donut charts' centre-text size (23px) so ring % reads consistently. */}
-            <span className="absolute inset-0 flex items-center justify-center text-[23px] font-extrabold text-text">
-              {round1(ind.pct)}%
-            </span>
-          </div>
-        </div>
-      );
-
     case 'donutBinary': {
       const [yes, no] = spec.donutLabels ?? ['Yes', 'No'];
       const p = round1(ind.pct);
@@ -515,6 +515,40 @@ export function IndicatorViz({ indicator: ind, spec, ghost, siblings, trends, sp
         rows.push({ label: 'Other causes', value: round1(100 - known), primary: false });
       }
       return <MiniCauseBars rows={rows} caption="Share of recorded maternal deaths" />;
+    }
+
+    case 'causeBars': {
+      // The merged cause card: every cause reads as a peer (no focus row), since
+      // this card no longer stands for any single one. `ind` is the host (PPH), so
+      // it supplies its own share and `siblings` the other two — both already
+      // rescoped by IndicatorCard when a filter is active.
+      const rows = Object.entries(CAUSE_INDICATORS)
+        .map(([label, indName]) => {
+          const sib = indName === ind.name ? ind : siblings[indName];
+          if (!sib || sib.pct <= 0) return null;
+          return { label, value: round1(sib.pct), primary: true };
+        })
+        .filter((r): r is { label: string; value: number; primary: boolean } => !!r)
+        .sort((a, b) => b.value - a.value);
+      if (!rows.length) return <MiniBullet pct={ind.pct} inverse={ind.inverse} />;
+      // Causes are recorded per death and need not be exhaustive, so the remainder
+      // is genuinely "not attributed" — shown only when the parts leave room for it
+      // (a scope whose recorded causes exceed its deaths gets no phantom remainder).
+      const known = rows.reduce((a, r) => a + r.value, 0);
+      if (known < 100) {
+        rows.push({ label: 'Other / unattributed', value: round1(100 - known), primary: false });
+      }
+      const n = ind.n;
+      return (
+        <MiniCauseBars
+          rows={rows}
+          caption={
+            n != null
+              ? `Share of ${n.toLocaleString('en-US')} recorded maternal deaths`
+              : 'Share of recorded maternal deaths'
+          }
+        />
+      );
     }
 
     case 'gauge':
@@ -646,20 +680,20 @@ function GhostIndicatorViz({ indicator: ind, spec }: { indicator: Indicator; spe
         return <MiniStateBars ghost rows={[]} ghostLabels={['Ranked states', 'will appear', 'here', '…']} />;
       case 'barSplit':
         return <MiniStateBars ghost rows={[]} ghostLabels={['L2', 'L1', 'Partial', 'Non-functional']} />;
+      case 'causeBars':
+        return (
+          <MiniStateBars
+            ghost
+            rows={[]}
+            ghostLabels={[...Object.keys(CAUSE_INDICATORS), 'Other / unattributed']}
+          />
+        );
       case 'donutBinary':
       case 'donutCause':
       case 'donutFp':
         return <MiniDonut ghost segments={[]} height={104} />;
       case 'gauge':
         return <MiniGauge ghost />;
-      case 'radial':
-        return (
-          <div className="flex w-full flex-col items-center justify-center gap-2 text-center">
-            {/* Ghost ring stays fully muted (no brand colour) so it reads as pending. */}
-            <RingProgress pct={0} size={140} thickness={5} color="rgb(128,138,150)" />
-            <span className="text-[12px] text-muted-2">Coverage % once connected</span>
-          </div>
-        );
       case 'bullet':
       default:
         return <MiniBullet ghost />;

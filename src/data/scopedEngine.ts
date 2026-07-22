@@ -32,6 +32,15 @@ export interface ScopedMeasure {
   num?: number;
   /** Optional secondary figure (e.g. delivery count behind a proportion) for the deep-dive. */
   sub?: string;
+  /** For proportion indicators: the raw counts behind the percentage, so the deep dive
+   *  can show BOTH the proportion and the absolute figures it is derived from. The
+   *  labels name what is being counted (they differ per indicator — "Attended
+   *  deliveries", "PPH deaths", …), so the table header is specific, never a bare
+   *  "Value". Absent for count / rate / categorical indicators. */
+  numerator?: number;
+  denominator?: number;
+  valueLabel?: string;
+  denomLabel?: string;
 }
 
 /** The compact per-source fact table the ETL emits (slim records + normalised type). */

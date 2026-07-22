@@ -6,6 +6,7 @@
 import { fetchAllOData } from '../lib/odata.mjs';
 import { dig, num, numPos, toQuarter, toMonthLabel, isFutureReport } from '../lib/util.mjs';
 import { normState, titleCase, cleanName, zoneForState, donorsForState } from '../lib/states.mjs';
+import { sanitizeRecords } from '../lib/quality.mjs';
 
 const SERVICE_URL =
   'https://odk.mine.bz/v1/projects/381/forms/hsdf_consortium_facility_monitoring_tool_v1.svc';
@@ -124,7 +125,10 @@ function latestPerFacility(records) {
 
 export async function loadSfmOdk(credentials) {
   const { rows, total } = await fetchAllOData(SERVICE_URL, 'Submissions', credentials);
-  const flat = rows.map(flatten);
+  // Guard before anything aggregates: duplicate submissions would otherwise
+  // double-count deliveries/deaths, and one row's impossible cause attribution
+  // (20 causes for 4 deaths) drove Plateau's PPH share above 100%.
+  const { records: flat } = sanitizeRecords(rows.map(flatten), 'SFM ODK');
   const snapshot = latestPerFacility(flat);
   return {
     name: 'SFM ODK',
