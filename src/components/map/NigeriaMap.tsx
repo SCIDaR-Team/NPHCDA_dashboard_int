@@ -305,8 +305,8 @@ function PerformanceLegendPopover() {
           // whitespace-normal resets the `nowrap` the panel would otherwise inherit
           // from the legend's single-line performance row — that inheritance was what
           // made the names overflow across the map.
-          style={{ width: 360, maxWidth: '85vw' }}
-          className={`absolute z-30 whitespace-normal rounded-xl border border-border bg-bg-elev-2 p-3.5 text-left shadow-2xl ${
+          style={{ width: 360, maxWidth: '85vw', maxHeight: '80vh' }}
+          className={`absolute z-30 overflow-y-auto overscroll-contain whitespace-normal rounded-xl border border-border bg-bg-elev-2 p-3.5 text-left shadow-2xl ${
             dropUp ? 'bottom-full mb-2' : 'top-full mt-2'
           } ${alignRight ? 'right-0' : 'left-0'}`}
         >

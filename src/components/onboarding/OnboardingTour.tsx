@@ -19,21 +19,95 @@ interface Step {
 }
 
 const STEPS: Step[] = [
+  // ── Home ──
   {
-    anchor: 'nav',
+    anchor: 'logo',
     route: '/app/overview',
-    title: 'Find your way around',
-    body: 'Every page lives here — the dashboards, the analytics (Scorecard, League, Data Quality, Equity, Compare) and Source Dashboards. Below the links you’ll find your Saved views and Recently viewed.',
+    title: 'The NPHCDA logo — your way home',
+    body: 'The logo at the top of the sidebar returns you to the landing page at any time.',
+  },
+  // ── Pages: each nav link, with its in-page features straight after ──
+  {
+    anchor: 'nav-overview',
+    route: '/app/overview',
+    title: 'Overview',
+    body: 'The national headline dashboard — key outcomes, coverage and the interactive state map. Click to view.',
+  },
+  {
+    anchor: 'exec-pdf',
+    route: '/app/overview',
+    title: 'Executive PDF report',
+    body: 'Generate a branded, multi-page PDF of the headline metrics and map — ready to share or print.',
+  },
+  {
+    anchor: 'nav-readiness',
+    route: '/app/readiness',
+    title: 'Facility Readiness',
+    body: 'Infrastructure, workforce, financing flows and governance across every facility. Click to view.',
+  },
+  {
+    anchor: 'strongest',
+    route: '/app/readiness',
+    title: 'Strongest indicator',
+    body: 'The best-performing indicator in this dashboard (goodness-aware) — a quick read on what’s working.',
+  },
+  {
+    anchor: 'needs-attention',
+    route: '/app/readiness',
+    title: 'Needs attention',
+    body: 'The weakest indicator in this dashboard — where to focus first.',
+  },
+  {
+    anchor: 'block-export',
+    route: '/app/readiness',
+    title: 'Export',
+    body: 'Export lives on most pages and adapts to each: here it downloads the indicator rows as CSV; on the Overview map it saves the map as PNG/PDF; on the league and scorecard tables it exports the ranked rows. Same button, page-appropriate output.',
+  },
+  {
+    anchor: 'nav-stock',
+    route: '/app/stock',
+    title: 'Stock Status',
+    body: 'Tracer commodities, equipment, cold-chain and vaccine stock-out signals. Click to view.',
+  },
+  {
+    anchor: 'nav-service',
+    route: '/app/service',
+    title: 'Service Delivery',
+    body: 'Uptake of RMNCAH+N services, maternal and child outcomes, and health security. Click to view.',
+  },
+  {
+    anchor: 'nav-trends',
+    route: '/app/trends',
+    title: 'Trend Analysis',
+    body: 'Compare indicators over time — monthly, quarterly or yearly, scope-aware, with real gaps left as gaps. Click to view.',
+  },
+  {
+    anchor: 'nav-facilities',
+    route: '/app/facilities',
+    title: 'Facility Deepdive',
+    body: 'A searchable State → LGA → Facility matrix across the assessed roster and the PFMO registry. Click to view.',
+  },
+  {
+    anchor: 'nav-sources',
+    route: '/app/sources',
+    title: 'Source Dashboards',
+    body: 'The linked source dashboards feeding the platform, each with its freshness and lineage so every figure is traceable. Click to view.',
+  },
+  {
+    anchor: 'nav-other-analysis',
+    title: 'Other Analysis',
+    body: 'Five deeper tools are folded in here: Scorecard (A–F grades), League Tables (rankings), Data Quality (completeness & outliers), Equity Analysis (zones & donor split) and Compare Scopes (states side by side).',
+  },
+  // ── Ribbon: collapse, then left → right across the header ──
+  {
+    anchor: 'collapse',
+    title: 'Collapse the sidebar',
+    body: 'Shrink the navigation to an icon-only rail to hand more width to the page — toggle it back any time.',
   },
   {
     anchor: 'filters',
     title: 'Filter & scope everything',
-    body: 'Set a global scope — zone, state, LGA, ward, facility type, facility, donor, source or period. It combines with AND and flows through every page, and becomes a shareable deep link.',
-  },
-  {
-    anchor: 'search',
-    title: 'Search anything',
-    body: 'Jump to any page, indicator or facility. The ⌘K / Ctrl-K shortcut opens it from anywhere.',
+    body: 'Set a global scope — zone, state, LGA, ward, facility type, facility, donor, source or period. It combines with AND, flows through every page, and becomes a shareable deep link.',
   },
   {
     anchor: 'freshness',
@@ -41,9 +115,9 @@ const STEPS: Step[] = [
     body: 'The snapshot date and its age. Every figure on the platform is real, sourced data refreshed on a monthly cadence.',
   },
   {
-    anchor: 'notifications',
-    title: 'Alerts, derived from the data',
-    body: 'Below-target indicators, weak (D/F) states, data gaps and stale-snapshot warnings — each deep-links straight to where it matters. “View all” opens the full centre.',
+    anchor: 'search',
+    title: 'Search anything',
+    body: 'Jump to any page, indicator or facility. The ⌘K / Ctrl-K shortcut opens it from anywhere.',
   },
   {
     anchor: 'help',
@@ -51,79 +125,14 @@ const STEPS: Step[] = [
     body: 'Reopen this tour or the full written guide any time from the “?” menu.',
   },
   {
+    anchor: 'notifications',
+    title: 'Alerts, derived from the data',
+    body: 'Below-target indicators, weak (D/F) states, data gaps and stale-snapshot warnings — each deep-links straight to where it matters. “View all” opens the full centre.',
+  },
+  {
     anchor: 'display',
     title: 'Make it readable for you',
     body: 'Toggle a colour-blind-safe (viridis) heat scale app-wide, and switch between light and dark themes.',
-  },
-  {
-    anchor: 'kpi',
-    route: '/app/overview',
-    title: 'Overview — the headline metrics',
-    body: 'Key outcomes and coverage, grouped by theme. Each card has a copy/cite button and, where a national target exists, its variance.',
-  },
-  {
-    anchor: 'map',
-    title: 'The national map',
-    body: 'Colour states by the composite readiness score or any single indicator, switch to an accessible sortable table, and export as PNG/PDF. Click a state for its cross-block profile.',
-  },
-  {
-    anchor: 'indicators',
-    route: '/app/readiness',
-    title: 'The three thematic dashboards',
-    body: 'Facility Readiness, Stock Status and Service Delivery hold the full indicator set. Open any card for its deep-dive: definition, source lineage, freshness and per-state / per-facility breakdowns.',
-  },
-  {
-    anchor: 'page-title',
-    route: '/app/trends',
-    title: 'Trend Analysis',
-    body: 'Compare indicators over time at monthly, quarterly or yearly granularity — scope-aware, with real gaps left as gaps.',
-  },
-  {
-    anchor: 'universe',
-    route: '/app/facilities',
-    title: 'Facility Deepdive',
-    body: 'A searchable State → LGA → Facility matrix across two universes — the assessed roster and the PFMO registry. Click a facility name to open its full profile.',
-  },
-  {
-    anchor: 'scorecard',
-    route: '/app/scorecard',
-    title: 'Scorecard — grade everything A–F',
-    body: 'Composite grades and a traffic-light matrix for the nation, every state and LGA. Click any grade to open the calculation drawer and see exactly which indicators produced it.',
-  },
-  {
-    anchor: 'league',
-    route: '/app/league',
-    title: 'League Tables',
-    body: 'Rank states, LGAs and facilities by composite or any indicator, best or worst first, with year-over-year movement where periodic data exists.',
-  },
-  {
-    anchor: 'dq',
-    route: '/app/data-quality',
-    title: 'Data Quality',
-    body: 'Completeness, timeliness, small samples and outliers across every indicator, plus per-source freshness and the list of data gaps.',
-  },
-  {
-    anchor: 'page-title',
-    route: '/app/equity',
-    title: 'Equity Analysis',
-    body: 'Compare performance across geopolitical zones and donor-supported vs non-donor states, with the equity gap between the best and worst group.',
-  },
-  {
-    anchor: 'page-title',
-    route: '/app/compare',
-    title: 'Compare Scopes',
-    body: 'Put National and up to four states side by side — small-multiples of their grades and sub-scores, plus a side-by-side indicator table.',
-  },
-  {
-    anchor: 'page-title',
-    route: '/app/sources',
-    title: 'Source Dashboards',
-    body: 'The linked source dashboards feeding the platform, each with its freshness and lineage so every figure is traceable.',
-  },
-  {
-    anchor: 'help',
-    title: 'You’re all set',
-    body: 'That’s the whole platform. Reopen this tour or the full guide from the “?” menu — the guide has exhaustive, per-feature detail whenever you need it.',
   },
 ];
 
@@ -139,6 +148,9 @@ export function OnboardingTour() {
   const location = useLocation();
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  // The callout is only shown once the target is measured — never at screen-centre
+  // mid-transition — so it moves straight to each feature instead of flashing centre.
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     maybeStart();
@@ -157,32 +169,49 @@ export function OnboardingTour() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, step]);
 
-  // Locate + measure the target element, polling until it mounts.
+  // Locate + measure the target element, polling until it mounts. The callout stays
+  // hidden (not centred) until `ready` flips, so it never flashes at screen-centre
+  // before sliding to the feature. Elements already on screen are measured at once
+  // (no scroll-settle); only off-screen targets are scrolled into view first.
   useEffect(() => {
     if (!open) {
       setRect(null);
+      setReady(false);
       return;
     }
     let cancelled = false;
     let tries = 0;
-    setRect(null);
+    setReady(false);
+    const commit = (el: HTMLElement) => {
+      if (cancelled) return;
+      setRect(el.getBoundingClientRect());
+      setReady(true);
+    };
     const tick = () => {
       if (cancelled) return;
       const el = document.querySelector<HTMLElement>(`[data-tour="${s.anchor}"]`);
       if (el) {
+        const r = el.getBoundingClientRect();
+        const inView = r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight;
+        if (inView) {
+          commit(el); // already visible → no scroll, no centre flash
+          return;
+        }
         el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
         window.setTimeout(() => {
-          if (!cancelled) setRect(el.getBoundingClientRect());
+          const settled = document.querySelector<HTMLElement>(`[data-tour="${s.anchor}"]`);
+          if (settled) commit(settled);
         }, 280);
         return;
       }
       if (tries++ > 40) {
-        setRect(null); // give up → centred fallback callout
+        setRect(null);
+        setReady(true); // give up → centred fallback callout
         return;
       }
       window.setTimeout(tick, 100);
     };
-    const t = window.setTimeout(tick, 140);
+    const t = window.setTimeout(tick, 120);
     return () => {
       cancelled = true;
       window.clearTimeout(t);
@@ -220,24 +249,31 @@ export function OnboardingTour() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // Callout position: beside the target if we have one, else centred.
+  // Callout position: beside the target if we have one, else centred. Both the
+  // below- and above-target placements are expressed as `top` + a translateY so the
+  // callout can transition (glide) between steps — mixing `top`/`bottom` would break
+  // the animation. Above-placement uses translateY(-100%) to sit on the target's top
+  // edge without needing the callout's measured height.
   let tipStyle: React.CSSProperties;
   if (rect) {
     const placeBelow = vh - rect.bottom > 240 || vh - rect.bottom >= rect.top;
     const left = Math.min(Math.max(rect.left + rect.width / 2 - TIP_W / 2, PAD), vw - TIP_W - PAD);
     tipStyle = placeBelow
-      ? { top: rect.bottom + GAP, left }
-      : { bottom: vh - rect.top + GAP, left };
+      ? { top: rect.bottom + GAP, left, transform: 'translateY(0)' }
+      : { top: rect.top - GAP, left, transform: 'translateY(-100%)' };
   } else {
     tipStyle = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
   }
 
   return createPortal(
     <div className="fixed inset-0 z-[120]" role="dialog" aria-modal="true" aria-label="Guided tour">
-      {/* Spotlight: the highlight box carries the dim (huge spread shadow) + a ring. */}
+      {/* Spotlight: the highlight box carries the dim (huge spread shadow) + a ring.
+          It stays mounted across steps and eases to each new target, so the dim never
+          flashes flat and the highlight glides instead of blinking. Only before the
+          very first measurement (no rect yet) do we fall back to a plain dim. */}
       {rect ? (
         <div
-          className="pointer-events-none absolute rounded-xl transition-all duration-200"
+          className="pointer-events-none absolute rounded-xl transition-all duration-[400ms] ease-in-out"
           style={{
             top: rect.top - 6,
             left: rect.left - 6,
@@ -250,9 +286,13 @@ export function OnboardingTour() {
         <div className="absolute inset-0 bg-[rgba(2,6,23,0.62)]" />
       )}
 
-      {/* Callout. */}
+      {/* Callout — cross-fades between steps rather than popping out. It stays mounted
+          and fades to 0 while the next target is being measured, then fades back in at
+          its new position, so the content swap is hidden behind the fade. */}
       <div
-        className="absolute w-[340px] max-w-[calc(100vw-20px)] rounded-card border border-border bg-bg-elev p-4 shadow-pop"
+        className={`absolute w-[340px] max-w-[calc(100vw-20px)] rounded-card border border-border bg-bg-elev p-4 shadow-pop transition-all duration-[250ms] ease-out ${
+          ready ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
         style={tipStyle}
       >
         <div className="flex items-start justify-between gap-2">
@@ -266,8 +306,10 @@ export function OnboardingTour() {
         <h3 className="mt-1 text-[15px] font-extrabold text-text">{s.title}</h3>
         <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{s.body}</p>
 
-        <div className="mt-3.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
+        {/* Dots and nav sit on separate rows: with 20 steps they can't share one
+            row inside a 340px card without pushing the buttons out of the box. */}
+        <div className="mt-3.5 flex flex-col gap-2.5">
+          <div className="flex flex-wrap items-center gap-1">
             {STEPS.map((_, i) => (
               <button
                 key={i}
@@ -277,7 +319,7 @@ export function OnboardingTour() {
               />
             ))}
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-end gap-1.5">
             {step > 0 && (
               <button
                 onClick={() => setStep((n) => Math.max(0, n - 1))}

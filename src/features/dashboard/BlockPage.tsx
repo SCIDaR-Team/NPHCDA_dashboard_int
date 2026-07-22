@@ -100,13 +100,21 @@ export function BlockPage({ block }: { block: BlockName }) {
       <PageHeader
         title={block}
         subtitle={`${BLOCK_DESCRIPTIONS[block]} · Tier 1 = all states · Tier 2 = select locations · Tier 3 = not available yet`}
-        actions={<ExportMenu filename={`nphcda-${block.toLowerCase().replace(/\s+/g, '-')}`} rows={exportRows} />}
+        actions={
+          <span data-tour="block-export" className="inline-flex">
+            <ExportMenu filename={`nphcda-${block.toLowerCase().replace(/\s+/g, '-')}`} rows={exportRows} />
+          </span>
+        }
       />
 
       {extremes && (
         <div className="mb-5 flex flex-wrap gap-2.5">
-          <ExtremeChip label="Strongest" entry={extremes.best} />
-          <ExtremeChip label="Needs attention" entry={extremes.worst} />
+          <span data-tour="strongest" className="inline-flex">
+            <ExtremeChip label="Strongest" entry={extremes.best} />
+          </span>
+          <span data-tour="needs-attention" className="inline-flex">
+            <ExtremeChip label="Needs attention" entry={extremes.worst} />
+          </span>
         </div>
       )}
 

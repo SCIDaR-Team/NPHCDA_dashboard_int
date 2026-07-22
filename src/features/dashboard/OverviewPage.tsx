@@ -128,7 +128,11 @@ export function OverviewPage() {
       <PageHeader
         title="Overview"
         subtitle="Top-level outcomes, coverage and system & trust indicators. Click a state on the map for its full cross-block profile."
-        actions={<ExecutiveReportButton />}
+        actions={
+          <span data-tour="exec-pdf" className="inline-flex">
+            <ExecutiveReportButton />
+          </span>
+        }
       />
 
       <div data-tour="kpi">
@@ -137,6 +141,9 @@ export function OverviewPage() {
 
       <div className="mt-6" data-tour="map">
         <SectionBlock
+          // The Multi-indicator Performance popover floats out of the legend and would be
+          // clipped by the card's default overflow-hidden — allow it to overflow here.
+          className="overflow-visible"
           title="State map — donor footprint & programme performance"
           action={
             <div className="flex w-full items-center gap-2 sm:w-auto">
@@ -201,7 +208,7 @@ export function OverviewPage() {
                 // Map + legend share a row: the legend is a vertical rail on the left
                 // (stacked below the map on narrow screens), so it no longer eats a
                 // full band of height beneath the map.
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                   <div className="order-2 sm:order-1 sm:w-auto sm:max-w-[300px] sm:shrink-0">
                     <MapLegend layout="column" />
                   </div>

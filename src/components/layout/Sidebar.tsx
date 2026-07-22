@@ -44,11 +44,13 @@ function SectionLabel({ collapsed, children }: { collapsed: boolean; children: R
 function RailFlyout({
   group,
   active,
+  anchor,
   onNavigate,
   onExpand,
 }: {
   group: NavGroup;
   active: boolean;
+  anchor: string;
   onNavigate?: () => void;
   onExpand: () => void;
 }) {
@@ -66,6 +68,7 @@ function RailFlyout({
     <div ref={ref} onMouseEnter={show} onMouseLeave={() => setOpen(false)}>
       <button
         onClick={onExpand}
+        data-tour={anchor}
         title={group.label}
         aria-label={group.label}
         className={cn(rowClass(true, active), 'mx-auto')}
@@ -136,6 +139,7 @@ function NavGroupSection({
   const setOpen = useUiStore((s) => s.setNavGroupOpen);
   const setNavCollapsed = useUiStore((s) => s.setNavCollapsed);
   const holdsActive = group.items.some((i) => location.pathname.startsWith(i.to));
+  const anchor = `nav-${group.label.toLowerCase().replace(/\s+/g, '-')}`;
 
   useEffect(() => {
     if (holdsActive) setOpen(group.label, true);
@@ -146,6 +150,7 @@ function NavGroupSection({
       <RailFlyout
         group={group}
         active={holdsActive}
+        anchor={anchor}
         onNavigate={onNavigate}
         onExpand={() => {
           setNavCollapsed(false);
@@ -159,6 +164,7 @@ function NavGroupSection({
     <div>
       <button
         onClick={() => toggle(group.label)}
+        data-tour={anchor}
         aria-expanded={open}
         title={group.description}
         className={cn(rowClass(false, holdsActive && !open), 'w-full')}
@@ -213,6 +219,7 @@ function NavItemLink({
     <NavLink
       to={item.to}
       onClick={onNavigate}
+      data-tour={`nav-${item.to.replace('/app/', '')}`}
       title={collapsed ? item.label : undefined}
       aria-label={collapsed ? item.label : undefined}
       className={({ isActive }) => cn(rowClass(collapsed, isActive), collapsed && 'mx-auto')}
@@ -249,6 +256,7 @@ export function Sidebar({
         <Link
           to="/"
           onClick={onNavigate}
+          data-tour="logo"
           aria-label="NPHCDA — go to home"
           title="Go to home"
           className={cn(

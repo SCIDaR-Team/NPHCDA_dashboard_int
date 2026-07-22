@@ -142,6 +142,7 @@ export function AppShell() {
 
           <button
             onClick={toggleNav}
+            data-tour="collapse"
             aria-expanded={!navCollapsed}
             aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
             title={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
