@@ -5,9 +5,11 @@ import { useNotificationStore } from '@/store/notificationStore';
 import { generateExecutiveReport } from '@/lib/executiveReport';
 
 /**
- * One-click executive PDF. Pulls the (already-cached) blocks + snapshot metadata and
- * hands them to the report generator. The heavy jsPDF/autotable code is dynamically
- * imported inside the generator, so this button adds nothing to the initial bundle.
+ * One-click executive PDF. Pulls the (already-cached) blocks, KPI cards, trends and
+ * snapshot metadata and hands them to the report generator, which builds a National,
+ * summary-density model — the same model the Report Builder page produces, just
+ * pre-scoped and condensed. The heavy jsPDF/autotable code is dynamically imported
+ * inside the generator, so this button adds nothing to the initial bundle.
  */
 export function ExecutiveReportButton({ className = '' }: { className?: string }) {
   const [busy, setBusy] = useState(false);
@@ -18,8 +20,13 @@ export function ExecutiveReportButton({ className = '' }: { className?: string }
     setBusy(true);
     try {
       const ds = getDataSource();
-      const [blocks, meta] = await Promise.all([ds.getBlocks(), ds.getSnapshotMeta()]);
-      await generateExecutiveReport(blocks, meta);
+      const [blocks, meta, kpiGroups, trends] = await Promise.all([
+        ds.getBlocks(),
+        ds.getSnapshotMeta(),
+        ds.getKpiGroups(),
+        ds.getTrendSeries(),
+      ]);
+      await generateExecutiveReport(blocks, meta, kpiGroups, trends);
       toast({ tone: 'success', title: 'Executive report downloaded', description: 'nphcda-executive-report.pdf' });
     } catch {
       toast({ tone: 'error', title: 'Could not build the report', description: 'Please try again.' });

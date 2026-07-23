@@ -7,6 +7,7 @@ import { useAsync } from '@/hooks/useAsync';
 import { getDataSource } from '@/data/datasource';
 import { heatColor } from '@/data/calculations';
 import { indicatorQualities, qualitySummary, type IndicatorQuality } from '@/data/dataQuality';
+import { INDICATOR_FRAMEWORK } from '@/data/indicatorFramework';
 import { formatDate, relativeTime } from '@/lib/freshness';
 import { cleanName } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -73,9 +74,9 @@ export function DataQualityPage() {
       <div data-tour="dq" className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <QualityKpi
           icon={<Database size={16} />}
-          label="Indicators with a live source"
-          value={loading ? null : `${summary.withSource}/${summary.totalIndicators}`}
-          sub={`${summary.missing} not yet sourced`}
+          label="Prioritized indicators with a source"
+          value={`${INDICATOR_FRAMEWORK.live}/${INDICATOR_FRAMEWORK.total}`}
+          sub={`${INDICATOR_FRAMEWORK.noSource} not yet sourced`}
         />
         <QualityKpi
           icon={<CheckCircle2 size={16} />}
@@ -97,6 +98,12 @@ export function DataQualityPage() {
           sub="States outside the 1.5×IQR fence"
         />
       </div>
+
+      <p className="mb-5 flex items-start gap-1.5 text-[12px] leading-relaxed text-muted-2">
+        <Info size={13} className="mt-0.5 flex-shrink-0" />
+        The prioritized framework has {INDICATOR_FRAMEWORK.total} indicators; the per-indicator table below lists {summary.totalIndicators} dashboard
+        cards, because the facility functional-status card alone covers 4 prioritized indicators (L2 / L1 / partial / non-functional).
+      </p>
 
       {/* Timeliness / per-source freshness. */}
       <SectionBlock title="Source timeliness & freshness">

@@ -13,6 +13,7 @@ import {
   Scale,
   Columns3,
   Layers,
+  FileText,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockName } from '@/data/types';
@@ -78,6 +79,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Facility Deepdive',
     icon: Table2,
     description: 'Searchable State → LGA → Facility matrix.',
+  },
+  {
+    to: '/app/reports',
+    label: 'Report Builder',
+    icon: FileText,
+    description: 'Compose a scoped, high-level executive briefing — pick sections, add framing, preview and download the PDF.',
   },
   {
     to: '/app/scorecard',

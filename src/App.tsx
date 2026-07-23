@@ -29,6 +29,9 @@ const FacilityDeepdivePage = lazy(() =>
 const SourceDashboardsPage = lazy(() =>
   import('@/features/dashboard/SourceDashboardsPage').then((m) => ({ default: m.SourceDashboardsPage }))
 );
+const ReportBuilderPage = lazy(() =>
+  import('@/features/dashboard/ReportBuilderPage').then((m) => ({ default: m.ReportBuilderPage }))
+);
 // NOTE: SettingsPage is retained in the codebase but removed from the active
 // routing/navigation. Re-add the route below to restore it.
 
@@ -79,6 +82,7 @@ export default function App() {
             <Route path="service" element={<BlockPage block="Service Delivery" />} />
             <Route path="trends" element={<TrendPage />} />
             <Route path="facilities" element={<FacilityDeepdivePage />} />
+            <Route path="reports" element={<ReportBuilderPage />} />
             <Route path="sources" element={<SourceDashboardsPage />} />
           </Route>
 
